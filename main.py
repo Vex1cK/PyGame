@@ -244,6 +244,8 @@ while True:
             all_sprites.add(bullet)
         except AttributeError:
             pass
+    else:
+        P_Bullet.kdNow += 1
 
     frames_count += 1  # счетчик, использую для цикличной смены анимаций, например ходьба
     if (frames_count // 5) % 2 == 1:
