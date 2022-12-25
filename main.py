@@ -20,6 +20,7 @@ movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
 world_pos = 0
 frames_count = 0
 bullet_speed = 12
+pos = (860, 440)
 
 
 def rot_center(image, angle):  # поворот картинки
@@ -172,8 +173,6 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
 
     def update(self):
         self.rect = self.rect.move(self.vx, self.vy)
-        # if not pygame.sprite.spritecollideany(self, pygame.sprite.Group(screen)):
-        #     self.kill()
 
 
 class Camera:
@@ -256,6 +255,7 @@ while True:
 
     all_sprites.update()
     player_bullets.update()
+    gun.update(pos)
 
     player_bullets.draw(screen)
     all_sprites.draw(screen)
