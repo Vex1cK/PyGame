@@ -12,8 +12,11 @@ emenies = pygame.sprite.Group()  # создание групп спрайтов
 walls = pygame.sprite.Group()
 boxes = pygame.sprite.Group()
 guns = pygame.sprite.Group()
+barrels = pygame.sprite.Group()
 player_bullets = pygame.sprite.Group()
-all_sprites = pygame.sprite.Group()
+flors = pygame.sprite.Group()
+player_group = pygame.sprite.Group()
+all_gropus = [flors, walls, boxes, barrels, emenies, player_group, player_bullets, guns]
 
 moving_up, moving_down, moving_left, moving_right, shooting = False, False, False, False, False
 movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
@@ -21,6 +24,7 @@ world_pos = 0
 frames_count = 0
 bullet_speed = 12
 pos = (860, 440)
+viewBoard = [[0] * 8 for _ in range(8)]
 
 
 def rot_center(image, angle):  # поворот картинки
@@ -192,13 +196,72 @@ class Camera:
         self.dy = -(target.rect.y + target.rect.h // 2 - height // 2)
 
 
+class Flor(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("flor.png"), (250, 250))
+
+    def __init__(self, x, y):
+        super().__init__(flors)
+        self.image = Flor.image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
 
 
-player = Player(all_sprites)  # спрайты
+class Board():
+    def __init__(self):
+        for i in range(8):
+            for j in range(8):
+                viewBoard[i][j] = Flor((j - 4) * 250, (i - 4) * 250)
+
+        self.playerNowX, self.playerNowY = 4, 4
+        self.playerOldX, self.playerOldY = 4, 4
+
+    def update(self):
+        r = True
+        for i in range(len(viewBoard)):
+            for j in range(len(viewBoard[i])):
+                fl = viewBoard[i][j]
+                if fl.rect.x < player.rect.centerx < fl.rect.x + 250 and \
+                        fl.rect.y < player.rect.centery < fl.rect.y + 250:
+                    self.playerOldX, self.playerOldY = self.playerNowX, self.playerNowY
+                    self.playerNowX, self.playerNowY = j, i
+                    r = False
+                    break
+            if not r:
+                break
+        if (self.playerNowX, self.playerNowY) != \
+                (self.playerOldX, self.playerOldY):
+            move = (
+                self.playerNowX - self.playerOldX,
+                self.playerNowY - self.playerOldY
+            )
+            if move[0] == 1:
+                for i in range(len(viewBoard)):
+                    viewBoard[i] = viewBoard[i][1:] + [viewBoard[i][0]]
+                    viewBoard[i][-1].rect.x = viewBoard[i][-2].rect.x + 250
+                    self.playerNowX += 1
+            elif move[0] == -1:
+                for i in range(len(viewBoard)):
+                    viewBoard[i] = [viewBoard[i][-1]] + viewBoard[i][:-1]
+                    viewBoard[i][0].rect.x = viewBoard[i][1].rect.x - 250
+                    self.playerNowX -= 1
+            if move[1] == 1:
+                viewBoard[:] = viewBoard[1:] + [viewBoard[0]]
+                for fl in viewBoard[-1]:
+                    fl.rect.y = viewBoard[-2][1].rect.y + 250
+                self.playerNowY += 1
+            elif move[1] == -1:
+                viewBoard[:] = [viewBoard[-1]] + viewBoard[:-1]
+                for fl in viewBoard[0]:
+                    fl.rect.y = viewBoard[1][1].rect.y - 250
+                self.playerNowY -= 1
+
+
+player = Player(player_group)  # спрайты
 gun = M4(guns)
 clock = pygame.time.Clock()
 camera = Camera()
-ex = Example(all_sprites)
+ex = Example(emenies)
+board = Board()
 
 while True:
     for event in pygame.event.get():
@@ -236,14 +299,14 @@ while True:
             shooting = False
 
     camera.update(player)
-    for sprite in all_sprites:
-        camera.apply(sprite)
+    for group in all_gropus:
+        for sprite in group:
+            camera.apply(sprite)
 
     if shooting:
         bullet = P_Bullet(pos)
         try:
             a = bullet.rect
-            all_sprites.add(bullet)
         except AttributeError:
             pass
     else:
@@ -256,14 +319,14 @@ while True:
         world_pos = 0
 
     screen.fill("Black")
+    for group in all_gropus:
+        if not group is guns:
+            group.update()
+    guns.update(pos)
+    board.update()
 
-    all_sprites.update()
-    player_bullets.update()
-    gun.update(pos)
-
-    player_bullets.draw(screen)
-    all_sprites.draw(screen)
-    guns.draw(screen)
+    for group in all_gropus:
+        group.draw(screen)
 
     pygame.display.flip()
     clock.tick(60)

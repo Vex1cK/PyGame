@@ -6,7 +6,7 @@ import math
 
 
 pygame.init()
-size = width, height = 1920, 1080  # касаемо экрана
+size = width, height = 600, 600  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
 def terminate():
@@ -29,6 +29,8 @@ def load_image(name, colorkey=None):  # загрузка картинки
         image = image.convert_alpha()
     return image
 
+a = [1,2,3,4]
+print([a[-1]] +  a[:-1])
 
 while True:
     for event in pygame.event.get():
