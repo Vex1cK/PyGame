@@ -5,6 +5,7 @@ import os
 import random
 
 pygame.init()
+pygame.font.init()
 size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
@@ -23,6 +24,12 @@ movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
 world_pos = 0
 frames_count = 0
 bullet_speed = 12
+player_accuracy = 1
+reload_timer = 0
+reload_time = 120
+
+mag = 30
+ammo = 120
 pos = (860, 440)
 viewBoard = [[0] * 8 for _ in range(8)]
 
@@ -168,9 +175,13 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
 
             self.vx = bullet_speed * self.sight_x / self.speed * 2
             self.vy = bullet_speed * self.sight_y / self.speed * 2
+            self.vx *= 3
+            self.vy *= 3
             self.rect = self.rect.move(self.vx, self.vy)
-            self.vx /= 2
-            self.vy /= 2
+            self.vx /= 4
+            self.vy /= 4
+            self.vx += random.choice(range(0 - player_accuracy, player_accuracy))
+            self.vy += random.choice(range(0 - player_accuracy, player_accuracy))
             P_Bullet.kdNow = 0
         else:
             P_Bullet.kdNow += 1
@@ -287,6 +298,8 @@ while True:
                 moving_left = False
             if event.key == pygame.K_d:
                 moving_right = False
+            if event.key == pygame.K_r and reload_timer == 0:
+                reload_timer += 1
 
         if event.type == pygame.MOUSEMOTION:
             pos = event.pos
@@ -303,12 +316,25 @@ while True:
         for sprite in group:
             camera.apply(sprite)
 
+    if reload_timer > reload_time:
+        reload_timer = 0
+        if ammo >= 30:
+            ammo -= 30
+            mag = 30
+        else:
+            mag = ammo
+            ammo = 0
+    elif reload_timer > 0:
+        reload_timer += 1
+
     if shooting:
-        bullet = P_Bullet(pos)
-        try:
-            a = bullet.rect
-        except AttributeError:
-            pass
+        if mag > 0 and reload_timer == 0:
+            bullet = P_Bullet(pos)
+            try:
+                a = bullet.rect
+                mag -= 1
+            except AttributeError:
+                pass
     else:
         P_Bullet.kdNow += 1
 
@@ -327,6 +353,26 @@ while True:
 
     for group in all_gropus:
         group.draw(screen)
+
+    mag_font = pygame.font.Font(None, 200)
+    if mag >= 10:
+        mag_info = mag_font.render(str(mag), True, (240, 240, 240))
+        screen.blit(mag_info, (1500, 900))
+    else:
+        mag_info = mag_font.render(str(mag), True, (240, 40, 40))
+        screen.blit(mag_info, (1585, 900))
+
+    ammo_font = pygame.font.Font(None, 125)
+    if ammo > 30:
+        ammo_info = ammo_font.render(str(ammo), True, (220, 220, 220))
+    else:
+        ammo_info = ammo_font.render(str(ammo), True, (220, 20, 20))
+    screen.blit(ammo_info, (1700, 925))
+    pygame.draw.rect(screen, (150, 150, 150), pygame.Rect((1670, 900), (20, 120)))
+    if reload_timer == 0:
+        pygame.draw.rect(screen, (240, 240, 240), pygame.Rect((1670, 900), (20, 120)))
+    else:
+        pygame.draw.rect(screen, (240, 240, 240), pygame.Rect((1670, 900), (20, reload_timer)))
 
     pygame.display.flip()
     clock.tick(60)
