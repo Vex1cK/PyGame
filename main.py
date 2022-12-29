@@ -192,7 +192,9 @@ class Camera:
         self.dy = -(target.rect.y + target.rect.h // 2 - height // 2)
 
 
-player = Player(all_sprites)
+
+
+player = Player(all_sprites)  # спрайты
 gun = M4(guns)
 clock = pygame.time.Clock()
 camera = Camera()
