@@ -17,6 +17,7 @@ barrels = pygame.sprite.Group()
 player_bullets = pygame.sprite.Group()
 flors = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
+chunksDraw = pygame.sprite.Group()
 all_gropus = [flors, walls, boxes, barrels, emenies, player_group, player_bullets, guns]
 
 moving_up, moving_down, moving_left, moving_right, shooting = False, False, False, False, False
@@ -156,6 +157,7 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
     image = load_image('bullet.png')
     kd = 7
     kdNow = 0
+    kdLive = 90
 
     def __init__(self, pos):
         if P_Bullet.kdNow >= P_Bullet.kd:
@@ -163,6 +165,7 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
             self.image = P_Bullet.image
             self.rect = self.image.get_rect()
             self.rect.center = player.rect.center
+            self.mask = pygame.mask.from_surface(self.image)
             self.x_mouse = pos[0]
             self.y_mouse = pos[1]
             self.self_x = self.rect.center[0]
@@ -183,11 +186,16 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
             self.vx += random.choice(range(0 - player_accuracy, player_accuracy))
             self.vy += random.choice(range(0 - player_accuracy, player_accuracy))
             P_Bullet.kdNow = 0
+            self.kdLiveNow = 0
         else:
             P_Bullet.kdNow += 1
 
     def update(self):
         self.rect = self.rect.move(self.vx, self.vy)
+        if self.kdLiveNow < P_Bullet.kdLive:
+            self.kdLiveNow += 1
+        else:
+            self.kill()
 
 
 class Camera:
@@ -217,7 +225,7 @@ class Flor(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = x, y
 
 
-class Board():
+class BoardFlor():
     def __init__(self):
         for i in range(8):
             for j in range(8):
@@ -267,12 +275,112 @@ class Board():
                 self.playerNowY -= 1
 
 
+class Box(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("box.png"), (200, 200))
+
+    def __init__(self, x=None, y=None):
+        super().__init__()
+        self.image = Box.image
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.hp = 5
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        if pygame.sprite.spritecollide(self, player_bullets, False):
+            for blt in player_bullets:
+                if pygame.sprite.collide_mask(self, blt):
+                    blt.kill()
+                    if self.hp <= 0:
+                        self.kill()
+                    else:
+                        self.hp -= 1
+                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
+                    break
+
+
+class Barrel(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("barrel.png"), (200, 200))
+
+    def __init__(self, x=None, y=None):
+        super().__init__()
+        self.image = Barrel.image
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.hp = 1
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        if pygame.sprite.spritecollide(self, player_bullets, False):
+            for blt in player_bullets:
+                if pygame.sprite.collide_mask(self, blt):
+                    blt.kill()
+                    if self.hp <= 0:
+                        self.kill()
+                    else:
+                        self.hp -= 1
+                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
+                    break
+
+
+class Chunk(pygame.sprite.Sprite):
+    def __init__(self, poss, x, y):
+        super().__init__()
+        self.image = pygame.transform.scale(load_image("flor.png"), (1080, 1080))
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = [(1080 * x) - 540, (1080 * y) - 540]
+        self.boxesValue = random.randrange(2, 4)
+        self.boxes = []
+        for i in range(self.boxesValue):
+            box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080),
+                      y=random.randrange(self.rect.y, self.rect.y + 1080))
+            while pygame.sprite.spritecollide(box, boxes, False):
+                box.kill()
+                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080))
+            self.boxes.append(box)
+            boxes.add(box)
+
+        self.barrelsValue = random.randrange(1, 3)
+        self.barrels = []
+        for i in range(self.barrelsValue):
+            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080))
+            while pygame.sprite.spritecollide(barl, boxes, False) or \
+                    pygame.sprite.spritecollide(barl, barrels, False):
+                barl.kill()
+                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080),
+                              y=random.randrange(self.rect[1], self.rect[1] + 1080))
+            self.barrels.append(barl)
+            barrels.add(barl)
+        self.pos = poss
+        self.playerIsHere = False
+
+    def update(self):
+        if pygame.sprite.collide_mask(player, self):
+            playerChunkPosNow[:] = self.pos.copy()
+            self.playerIsHere = True
+        else:
+            self.playerIsHere = False
+
+
 player = Player(player_group)  # спрайты
 gun = M4(guns)
 clock = pygame.time.Clock()
 camera = Camera()
 ex = Example(emenies)
-board = Board()
+boardFlor = BoardFlor()
+playerChunkPosOld = [0, 0]
+playerChunkPosNow = [0, 0]
+
+chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+chunksSaver = {}
+for i in range(3):
+    for j in range(3):
+        chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
 
 while True:
     for event in pygame.event.get():
@@ -306,15 +414,31 @@ while True:
             gun.update(pos)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            shooting = True
+            if event.button == 1:
+                shooting = True
 
         if event.type == pygame.MOUSEBUTTONUP:
-            shooting = False
+            if event.button == 1:
+                shooting = False
 
     camera.update(player)
     for group in all_gropus:
         for sprite in group:
             camera.apply(sprite)
+    # camera.update(player)
+    for row in chunks:
+        for chunk in row:
+            camera.apply(chunk)
+    for key in chunksSaver:
+        for box in chunksSaver[key].boxes:
+            # if not pygame.sprite.collide_mask(box, chunksSaver[key]):
+            #      camera.update(player)
+            camera.apply(box)
+        for barrel in chunksSaver[key].barrels:
+            # if not pygame.sprite.collide_mask(barrel, chunksSaver[key]):
+            #      camera.update(player)
+            camera.apply(barrel)
+        camera.apply(chunksSaver[key])
 
     if reload_timer > reload_time:
         reload_timer = 0
@@ -338,7 +462,7 @@ while True:
     else:
         P_Bullet.kdNow += 1
 
-    frames_count += 1  # счетчик, использую для цикличной смены анимаций, например ходьба
+    frames_count += 1  # счетчик, используется для цикличной смены анимаций, например ходьба
     if (frames_count // 5) % 2 == 1:
         world_pos = 1
     else:
@@ -349,8 +473,12 @@ while True:
         if not group is guns:
             group.update()
     guns.update(pos)
-    board.update()
+    boardFlor.update()
+    for row in chunks:
+        for chunk in row:
+            chunk.update()
 
+    chunksDraw.draw(screen)
     for group in all_gropus:
         group.draw(screen)
 
@@ -373,6 +501,72 @@ while True:
         pygame.draw.rect(screen, (240, 240, 240), pygame.Rect((1670, 900), (20, 120)))
     else:
         pygame.draw.rect(screen, (240, 240, 240), pygame.Rect((1670, 900), (20, reload_timer)))
+
+    if playerChunkPosNow != playerChunkPosOld:
+        move = (
+            playerChunkPosNow[0] - playerChunkPosOld[0],
+            playerChunkPosNow[1] - playerChunkPosOld[1]
+        )
+        if move[0] == 1:
+            for r in range(len(chunks)):
+                row = chunks[r]
+                delChunk = row.pop(0)
+
+                for box in delChunk.boxes:
+                    boxes.remove(box)
+                for barrel in delChunk.barrels:
+                    barrels.remove(barrel)
+
+                chunksSaver[tuple(delChunk.pos)] = delChunk
+                if (row[-1].pos[0] + 1, row[-1].pos[1]) in chunksSaver:
+                    addChunk = chunksSaver[(row[-1].pos[0] + 1, row[-1].pos[1])]
+                    chunks[r].append(addChunk)
+
+                    for box in addChunk.boxes:
+                        boxes.add(box)
+                    for barrel in addChunk.barrels:
+                        barrels.add(barrel)
+
+                    del chunksSaver[tuple(addChunk.pos)]
+                else:
+                    chunks[r].append(Chunk([row[-1].pos[0] + 1, row[-1].pos[1]], 2, row[-1].pos[1]))
+                    chunks[r][-1].rect.x = chunks[r][-2].rect.x + 1080
+                    chunks[r][-1].rect.y = chunks[r][-2].rect.y
+        elif move[0] == -1:
+            for r in range(len(chunks)):
+                row = chunks[r]
+                delChunk = row.pop(-1)
+
+                for box in delChunk.boxes:
+                    boxes.remove(box)
+                for barrel in delChunk.barrels:
+                    barrels.remove(barrel)
+
+                chunksSaver[tuple(delChunk.pos)] = delChunk
+                if (row[0].pos[0] - 1, row[0].pos[1]) in chunksSaver:
+                    addChunk = chunksSaver[(row[0].pos[0] - 1, row[0].pos[1])]
+                    chunks[r].insert(0, addChunk)
+
+                    for box in addChunk.boxes:
+                        boxes.add(box)
+                    for barrel in addChunk.barrels:
+                        barrels.add(barrel)
+
+                    del chunksSaver[tuple(addChunk.pos)]
+                else:
+                    chunks[r].insert(0, Chunk([row[0].pos[0] - 1, row[0].pos[1]], -1, row[0].pos[1]))
+                    chunks[r][0].rect.x = chunks[r][1].rect.x - 1080
+                    chunks[r][0].rect.y = chunks[r][1].rect.y
+        playerChunkPosOld = playerChunkPosNow.copy()
+        # print("x" * 50)
+        # for i in chunks:
+        #     print('-' * 25)
+        #     for j in i:
+        #         print(j.pos, end='')
+        #     print()
+        # print(chunksSaver)
+        # print(playerChunkPosNow)
+        # print("x" * 50)
 
     pygame.display.flip()
     clock.tick(60)
