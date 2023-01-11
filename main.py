@@ -425,18 +425,13 @@ while True:
     for group in all_gropus:
         for sprite in group:
             camera.apply(sprite)
-    # camera.update(player)
     for row in chunks:
         for chunk in row:
             camera.apply(chunk)
     for key in chunksSaver:
         for box in chunksSaver[key].boxes:
-            # if not pygame.sprite.collide_mask(box, chunksSaver[key]):
-            #      camera.update(player)
             camera.apply(box)
         for barrel in chunksSaver[key].barrels:
-            # if not pygame.sprite.collide_mask(barrel, chunksSaver[key]):
-            #      camera.update(player)
             camera.apply(barrel)
         camera.apply(chunksSaver[key])
 
@@ -526,7 +521,6 @@ while True:
                         boxes.add(box)
                     for barrel in addChunk.barrels:
                         barrels.add(barrel)
-
                     del chunksSaver[tuple(addChunk.pos)]
                 else:
                     chunks[r].append(Chunk([row[-1].pos[0] + 1, row[-1].pos[1]], 2, row[-1].pos[1]))
@@ -557,16 +551,71 @@ while True:
                     chunks[r].insert(0, Chunk([row[0].pos[0] - 1, row[0].pos[1]], -1, row[0].pos[1]))
                     chunks[r][0].rect.x = chunks[r][1].rect.x - 1080
                     chunks[r][0].rect.y = chunks[r][1].rect.y
+        if move[1] == 1:
+            row = chunks.pop(0)
+            newRow = []
+            for i in range(len(row)):
+                delChunk = row[i]
+
+                for box in delChunk.boxes:
+                    boxes.remove(box)
+                for barrel in delChunk.barrels:
+                    barrels.remove(barrel)
+
+                chunksSaver[tuple(delChunk.pos)] = delChunk
+                if (delChunk.pos[0], chunks[-1][0].pos[1] + 1) in chunksSaver:
+                    addChunk = chunksSaver[(delChunk.pos[0], chunks[-1][0].pos[1] + 1)]
+
+                    for box in addChunk.boxes:
+                        boxes.add(box)
+                    for barrel in addChunk.barrels:
+                        barrels.add(barrel)
+
+                    del chunksSaver[tuple(addChunk.pos)]
+                    newRow.append(addChunk)
+                else:
+                    newRow.append(Chunk([delChunk.pos[0], chunks[-1][0].pos[1] + 1], delChunk.pos[0], 2))
+                    newRow[-1].rect.x = delChunk.rect.x
+                    newRow[-1].rect.y = chunks[-1][0].rect.y + 1080
+            chunks.append(newRow)
+        elif move[1] == -1:
+            row = chunks.pop(-1)
+            newRow = []
+            for i in range(len(row)):
+                delChunk = row[i]
+
+                for box in delChunk.boxes:
+                    boxes.remove(box)
+                for barrel in delChunk.barrels:
+                    barrels.remove(barrel)
+
+                chunksSaver[tuple(delChunk.pos)] = delChunk
+                if (delChunk.pos[0], chunks[0][0].pos[1] - 1) in chunksSaver:
+                    addChunk = chunksSaver[(delChunk.pos[0], chunks[0][0].pos[1] - 1)]
+
+                    for box in addChunk.boxes:
+                        boxes.add(box)
+                    for barrel in addChunk.barrels:
+                        barrels.add(barrel)
+
+                    del chunksSaver[tuple(addChunk.pos)]
+                    newRow.append(addChunk)
+                else:
+                    newRow.insert(0, Chunk([delChunk.pos[0], chunks[0][0].pos[1] - 1], delChunk.pos[0], -1))
+                    newRow[0].rect.x = delChunk.rect.x
+                    newRow[0].rect.y = chunks[0][0].rect.y - 1080
+            chunks.insert(0, newRow)
+
         playerChunkPosOld = playerChunkPosNow.copy()
-        # print("x" * 50)
-        # for i in chunks:
-        #     print('-' * 25)
-        #     for j in i:
-        #         print(j.pos, end='')
-        #     print()
-        # print(chunksSaver)
-        # print(playerChunkPosNow)
-        # print("x" * 50)
+        for i in chunks:
+            print('-' * 25)
+            for j in i:
+                print(j.pos, end='')
+            print()
+        print(chunksSaver)
+        print(playerChunkPosNow)
+        print("x" * 50)
+
 
     pygame.display.flip()
     clock.tick(60)

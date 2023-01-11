@@ -30,7 +30,8 @@ def load_image(name, colorkey=None):  # загрузка картинки
     return image
 
 a = [1,2,3,4]
-print([a[-1]] +  a[:-1])
+a.append(5)
+print(a)
 
 while True:
     for event in pygame.event.get():
