@@ -326,34 +326,37 @@ class Barrel(pygame.sprite.Sprite):
 
 
 class Chunk(pygame.sprite.Sprite):
-    def __init__(self, poss, x, y):
+    def __init__(self, poss, x, y, rectx=None, recty=None):
         super().__init__()
         self.image = pygame.transform.scale(load_image("flor.png"), (1080, 1080))
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = [(1080 * x) - 540, (1080 * y) - 540]
+        if rectx is None and recty is None:
+            self.rect.x, self.rect.y = [(1080 * x) - 860, (1080 * y) - 440]
+        if rectx is not None and recty is not None:
+            self.rect.x, self.rect.y = rectx, recty
         self.boxesValue = random.randrange(2, 4)
         self.boxes = []
-        for i in range(self.boxesValue):
-            box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080),
-                      y=random.randrange(self.rect.y, self.rect.y + 1080))
+        for i in range(self.boxesValue):  # Спавн коробок
+            box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080 - 200),
+                      y=random.randrange(self.rect.y, self.rect.y + 1080 - 200))
             while pygame.sprite.spritecollide(box, boxes, False):
                 box.kill()
-                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080))
+                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
             self.boxes.append(box)
             boxes.add(box)
 
         self.barrelsValue = random.randrange(1, 3)
         self.barrels = []
-        for i in range(self.barrelsValue):
-            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080))
+        for i in range(self.barrelsValue):  # Спавн бочек
+            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
             while pygame.sprite.spritecollide(barl, boxes, False) or \
                     pygame.sprite.spritecollide(barl, barrels, False):
                 barl.kill()
-                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080),
-                              y=random.randrange(self.rect[1], self.rect[1] + 1080))
+                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
+                              y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
             self.barrels.append(barl)
             barrels.add(barl)
         self.pos = poss
@@ -377,7 +380,6 @@ playerChunkPosOld = [0, 0]
 playerChunkPosNow = [0, 0]
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-chunksSaver = {}
 for i in range(3):
     for j in range(3):
         chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
@@ -428,12 +430,6 @@ while True:
     for row in chunks:
         for chunk in row:
             camera.apply(chunk)
-    for key in chunksSaver:
-        for box in chunksSaver[key].boxes:
-            camera.apply(box)
-        for barrel in chunksSaver[key].barrels:
-            camera.apply(barrel)
-        camera.apply(chunksSaver[key])
 
     if reload_timer > reload_time:
         reload_timer = 0
@@ -509,23 +505,14 @@ while True:
 
                 for box in delChunk.boxes:
                     boxes.remove(box)
+                    box.kill()
                 for barrel in delChunk.barrels:
                     barrels.remove(barrel)
+                    barrel.kill()
 
-                chunksSaver[tuple(delChunk.pos)] = delChunk
-                if (row[-1].pos[0] + 1, row[-1].pos[1]) in chunksSaver:
-                    addChunk = chunksSaver[(row[-1].pos[0] + 1, row[-1].pos[1])]
-                    chunks[r].append(addChunk)
-
-                    for box in addChunk.boxes:
-                        boxes.add(box)
-                    for barrel in addChunk.barrels:
-                        barrels.add(barrel)
-                    del chunksSaver[tuple(addChunk.pos)]
-                else:
-                    chunks[r].append(Chunk([row[-1].pos[0] + 1, row[-1].pos[1]], 2, row[-1].pos[1]))
-                    chunks[r][-1].rect.x = chunks[r][-2].rect.x + 1080
-                    chunks[r][-1].rect.y = chunks[r][-2].rect.y
+                delChunk.kill()
+                chunks[r].append(Chunk([row[-1].pos[0] + 1, row[-1].pos[1]], 2, row[-1].pos[1],
+                                       chunks[r][-1].rect.x + 1080, chunks[r][-1].rect.y))
         elif move[0] == -1:
             for r in range(len(chunks)):
                 row = chunks[r]
@@ -533,24 +520,14 @@ while True:
 
                 for box in delChunk.boxes:
                     boxes.remove(box)
+                    box.kill()
                 for barrel in delChunk.barrels:
                     barrels.remove(barrel)
+                    barrel.kill()
 
-                chunksSaver[tuple(delChunk.pos)] = delChunk
-                if (row[0].pos[0] - 1, row[0].pos[1]) in chunksSaver:
-                    addChunk = chunksSaver[(row[0].pos[0] - 1, row[0].pos[1])]
-                    chunks[r].insert(0, addChunk)
-
-                    for box in addChunk.boxes:
-                        boxes.add(box)
-                    for barrel in addChunk.barrels:
-                        barrels.add(barrel)
-
-                    del chunksSaver[tuple(addChunk.pos)]
-                else:
-                    chunks[r].insert(0, Chunk([row[0].pos[0] - 1, row[0].pos[1]], -1, row[0].pos[1]))
-                    chunks[r][0].rect.x = chunks[r][1].rect.x - 1080
-                    chunks[r][0].rect.y = chunks[r][1].rect.y
+                delChunk.kill()
+                chunks[r].insert(0, Chunk([row[0].pos[0] - 1, row[0].pos[1]], -1, row[0].pos[1],
+                                          chunks[r][0].rect.x - 1080, chunks[r][0].rect.y))
         if move[1] == 1:
             row = chunks.pop(0)
             newRow = []
@@ -559,24 +536,14 @@ while True:
 
                 for box in delChunk.boxes:
                     boxes.remove(box)
+                    box.kill()
                 for barrel in delChunk.barrels:
                     barrels.remove(barrel)
+                    barrel.kill()
 
-                chunksSaver[tuple(delChunk.pos)] = delChunk
-                if (delChunk.pos[0], chunks[-1][0].pos[1] + 1) in chunksSaver:
-                    addChunk = chunksSaver[(delChunk.pos[0], chunks[-1][0].pos[1] + 1)]
-
-                    for box in addChunk.boxes:
-                        boxes.add(box)
-                    for barrel in addChunk.barrels:
-                        barrels.add(barrel)
-
-                    del chunksSaver[tuple(addChunk.pos)]
-                    newRow.append(addChunk)
-                else:
-                    newRow.append(Chunk([delChunk.pos[0], chunks[-1][0].pos[1] + 1], delChunk.pos[0], 2))
-                    newRow[-1].rect.x = delChunk.rect.x
-                    newRow[-1].rect.y = chunks[-1][0].rect.y + 1080
+                newRow.append(Chunk([delChunk.pos[0], chunks[-1][0].pos[1] + 1], delChunk.pos[0], 2,
+                                    delChunk.rect.x, chunks[-1][0].rect.y + 1080))
+                delChunk.kill()
             chunks.append(newRow)
         elif move[1] == -1:
             row = chunks.pop(-1)
@@ -586,24 +553,14 @@ while True:
 
                 for box in delChunk.boxes:
                     boxes.remove(box)
+                    box.kill()
                 for barrel in delChunk.barrels:
                     barrels.remove(barrel)
+                    barrel.kill()
 
-                chunksSaver[tuple(delChunk.pos)] = delChunk
-                if (delChunk.pos[0], chunks[0][0].pos[1] - 1) in chunksSaver:
-                    addChunk = chunksSaver[(delChunk.pos[0], chunks[0][0].pos[1] - 1)]
-
-                    for box in addChunk.boxes:
-                        boxes.add(box)
-                    for barrel in addChunk.barrels:
-                        barrels.add(barrel)
-
-                    del chunksSaver[tuple(addChunk.pos)]
-                    newRow.append(addChunk)
-                else:
-                    newRow.insert(0, Chunk([delChunk.pos[0], chunks[0][0].pos[1] - 1], delChunk.pos[0], -1))
-                    newRow[0].rect.x = delChunk.rect.x
-                    newRow[0].rect.y = chunks[0][0].rect.y - 1080
+                newRow.append(Chunk([delChunk.pos[0], chunks[0][0].pos[1] - 1], delChunk.pos[0], -1,
+                                    delChunk.rect.x, chunks[0][0].rect.y - 1080))
+                delChunk.kill()
             chunks.insert(0, newRow)
 
         playerChunkPosOld = playerChunkPosNow.copy()
@@ -612,10 +569,8 @@ while True:
             for j in i:
                 print(j.pos, end='')
             print()
-        print(chunksSaver)
         print(playerChunkPosNow)
         print("x" * 50)
-
 
     pygame.display.flip()
     clock.tick(60)
