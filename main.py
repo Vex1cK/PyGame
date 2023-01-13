@@ -16,12 +16,14 @@ guns = pygame.sprite.Group()
 barrels = pygame.sprite.Group()
 player_bullets = pygame.sprite.Group()
 flors = pygame.sprite.Group()
+adrLineGr = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 chunksDraw = pygame.sprite.Group()
-all_gropus = [flors, walls, boxes, barrels, emenies, player_group, player_bullets, guns]
+all_gropus = [flors, walls, boxes, barrels, adrLineGr, emenies, player_group, player_bullets, guns]
 
 moving_up, moving_down, moving_left, moving_right, shooting = False, False, False, False, False
 movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
+movesCoordsMoreSpeed = {"UP": [0, -7], "DOWN": [0, 7], "LEFT": [-7, 0], "RIGHT": [7, 0]}
 world_pos = 0
 frames_count = 0
 bullet_speed = 12
@@ -75,6 +77,10 @@ class Example(pygame.sprite.Sprite):  # пример спрайта и рабо�
 class Player(pygame.sprite.Sprite):  # класс игрока
     image = load_image('player_calm.png')
     player_reverse = False
+    health = 100
+    adr_timer = 0
+    speed = 12
+    accuracy = 1
 
     def __init__(self, group):
         super().__init__(group)
@@ -83,6 +89,16 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.rect = self.image.get_rect()
 
     def update(self):
+        global movesCoords, movesCoordsMoreSpeed
+        if self.adr_timer > 0:
+            if self.adr_timer == 1:
+                self.adr_timer -= 1
+            self.adr_timer -= 1
+        if self.adr_timer < 0:
+            self.accuracy = 1
+            self.speed = 12
+            self.adr_timer = 0
+            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
         if any((moving_up, moving_down, moving_left, moving_right)):
             if world_pos == 1:
                 self.image = load_image('player_moving_1.png')
@@ -183,8 +199,11 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
             self.rect = self.rect.move(self.vx, self.vy)
             self.vx /= 4
             self.vy /= 4
-            self.vx += random.choice(range(0 - player_accuracy, player_accuracy))
-            self.vy += random.choice(range(0 - player_accuracy, player_accuracy))
+            try:
+                self.vx += random.choice(range(0 - player.accuracy, player.accuracy))
+                self.vy += random.choice(range(0 - player.accuracy, player.accuracy))
+            except IndexError:  # При подборе аптечки
+                pass
             P_Bullet.kdNow = 0
             self.kdLiveNow = 0
         else:
@@ -293,6 +312,8 @@ class Box(pygame.sprite.Sprite):
                 if pygame.sprite.collide_mask(self, blt):
                     blt.kill()
                     if self.hp <= 0:
+                        if random.randint(0, 11) > 8:
+                            Adrinaline(x=self.rect.x, y=self.rect.y)
                         self.kill()
                     else:
                         self.hp -= 1
@@ -302,27 +323,70 @@ class Box(pygame.sprite.Sprite):
 
 class Barrel(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image("barrel.png"), (200, 200))
+    boom = load_image('boom.png')
+    timer = 50
+    k = 1
 
     def __init__(self, x=None, y=None):
         super().__init__()
-        self.image = Barrel.image
+        randomValue = random.randint(100, 200)
+        self.image = pygame.transform.scale(Barrel.image, (randomValue, randomValue))
+        randomValue = random.randint(20, 40) + randomValue
+        self.boom = pygame.transform.scale(Barrel.boom, (randomValue, randomValue))
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
-        self.hp = 1
+        self.hp = 2
         if x and y:
             self.rect.x, self.rect.y = x, y
 
     def update(self):
+        if self.hp <= 0:
+            self.timer -= 1
+            if self.timer <= 80:
+                self.center = self.rect.center
+                self.image = pygame.transform.scale(self.boom, (round(600 * self.k ** 2), round(600 * self.k ** 2)))
+                self.rect = self.image.get_rect()
+                self.mask = pygame.mask.from_surface(self.image)
+                self.rect.center = self.center
+                self.k -= 0.02
+        if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
+            player.health -= 50
+
+        if self.timer <= 0:
+            self.kill()
+
         if pygame.sprite.spritecollide(self, player_bullets, False):
             for blt in player_bullets:
                 if pygame.sprite.collide_mask(self, blt):
                     blt.kill()
                     if self.hp <= 0:
-                        self.kill()
+                        pass
                     else:
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
+
+
+class Adrinaline(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('adr.png'), (150, 150))
+
+    def __init__(self, x=None, y=None):
+        super().__init__(adrLineGr)
+        self.image = Adrinaline.image
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        global movesCoords, movesCoordsMoreSpeed
+        if pygame.sprite.collide_mask(self, player):
+            player.health = 120
+            player.adr_timer = 1000
+            player.speed = 15
+            player.accuracy = 0
+            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
+            self.kill()
 
 
 class Chunk(pygame.sprite.Sprite):
@@ -493,6 +557,12 @@ while True:
     else:
         pygame.draw.rect(screen, (240, 240, 240), pygame.Rect((1670, 900), (20, reload_timer)))
 
+    if player.health > 30:
+        hp_info = mag_font.render(str(player.health), True, (220, 220, 220))
+    else:
+        hp_info = mag_font.render(str(player.health), True, (220, 20, 20))
+    screen.blit(hp_info, (60, 925))
+
     if playerChunkPosNow != playerChunkPosOld:
         move = (
             playerChunkPosNow[0] - playerChunkPosOld[0],
@@ -564,13 +634,6 @@ while True:
             chunks.insert(0, newRow)
 
         playerChunkPosOld = playerChunkPosNow.copy()
-        for i in chunks:
-            print('-' * 25)
-            for j in i:
-                print(j.pos, end='')
-            print()
-        print(playerChunkPosNow)
-        print("x" * 50)
 
     pygame.display.flip()
     clock.tick(60)
