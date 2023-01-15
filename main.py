@@ -12,19 +12,16 @@ screen = pygame.display.set_mode(size)
 
 moving = False
 
-pygame.mixer.music.load('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\BG.mp3')
+pygame.mixer.music.load('sounds\\BG.mp3')
 pygame.mixer.music.set_volume(1.5)
 pygame.mixer.music.play()
 
-m4_shot = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\AK.mp3')
+m4_shot = pygame.mixer.Sound('sounds\\AK.mp3')
 m4_shot.set_volume(1.5)
-walking = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\running.mp3')
+walking = pygame.mixer.Sound('sounds\\running.mp3')
 walking.set_volume(1.5)
-blowing = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\boom.mp3')
+blowing = pygame.mixer.Sound('sounds\\boom.mp3')
 blowing.set_volume(1.5)
-
-
-
 
 emenies = pygame.sprite.Group()  # создание групп спрайтов
 walls = pygame.sprite.Group()
@@ -585,6 +582,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
+        self.say_hi = True
         self.hp = 100
         self.image = self.pos1
         self.rect = self.image.get_rect()
@@ -615,6 +613,11 @@ class Enemy(pygame.sprite.Sprite):
         self.dx = self.px - self.mx
         self.dy = self.py - self.my
         self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
+        if self.dr < 1000:
+            if random.choice(range(700)) == 1 or self.say_hi:
+                self.say_hi = False
+                voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
+                voise.play()
         if 400 < self.dr < 1200 and self.walking == 0:
             self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
         elif self.walking != 0:
@@ -805,7 +808,7 @@ for i in range(3):
         chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
 
 while True:
-    if not(any((moving_up, moving_down, moving_left, moving_right))):
+    if not (any((moving_up, moving_down, moving_left, moving_right))):
         moving = False
         walking.stop()
     for event in pygame.event.get():
