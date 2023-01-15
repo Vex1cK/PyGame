@@ -77,6 +77,7 @@ menuContinue = load_image("MenuButton1.png")
 
 
 def escMenu():
+    pygame.mouse.set_visible(True)
     pygame.init()
     pygame.font.init()
     size = width, height = 1920, 1080  # касаемо экрана
@@ -544,27 +545,26 @@ class Adrinaline(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    speed = 10
+    speed = 4
     pos1 = pygame.transform.scale(load_image('enemy1.png'), (167, 167))
     pos2 = pygame.transform.scale(load_image('enemy2.png'), (167, 167))
 
-    def __init__(self, x=None, y=None):
+    def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
         self.hp = 100
         self.image = self.pos1
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
+        self.chunk = chunk
         if x and y:
             self.rect.x, self.rect.y = x, y
 
     def update(self):
         if world_pos == 1:
             self.image = self.pos1
-            self.rect = self.image.get_rect()
             self.mask = pygame.mask.from_surface(self.image)
         else:
             self.image = self.pos2
-            self.rect = self.image.get_rect()
             self.mask = pygame.mask.from_surface(self.image)
         self.center = self.rect.center
         self.player = player.rect.center
@@ -573,9 +573,17 @@ class Enemy(pygame.sprite.Sprite):
         self.dx = self.px - self.mx
         self.dy = self.py - self.my
         self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
-        if self.dr > 600:
-            self.rect = self.rect.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
+        if self.dr > 400 and self.dr < 1200:
+            self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
 
+    def move(self, x, y):
+        self.rect = self.rect.move(x, y)
+        if self.chunk:
+            if not pygame.sprite.collide_mask(self, self.chunk):
+                for chunk in chunks:
+                    if pygame.sprite.collide_mask(self, chunk):
+                        self.chunk = chunk
+                        break
 
 class Car(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image("car.png"), (600, 600))
@@ -633,7 +641,6 @@ class Car(pygame.sprite.Sprite):
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
-
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
@@ -722,6 +729,7 @@ while True:
                     moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
                                                                                    False, False, False, False
                     barrelMoveMessage = None
+                    pygame.mouse.set_visible(False)
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_w:
