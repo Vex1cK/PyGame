@@ -11,7 +11,6 @@ size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
 emenies = pygame.sprite.Group()  # создание групп спрайтов
-walls = pygame.sprite.Group()
 boxes = pygame.sprite.Group()
 guns = pygame.sprite.Group()
 barrels = pygame.sprite.Group()
@@ -22,8 +21,9 @@ ammoGr = pygame.sprite.Group()
 AKS = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 messages = pygame.sprite.Group()
-all_gropus = [flors, walls, boxes, barrels, adrLineGr, ammoGr,
-              emenies, player_group, player_bullets, guns, messages]
+carsGr = pygame.sprite.Group()
+all_gropus = [flors, boxes, barrels, adrLineGr, ammoGr, carsGr,
+              emenies, player_group, player_bullets, AKS, guns, messages]
 
 moving_up, moving_down, moving_left, \
 moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
@@ -133,6 +133,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.image = pygame.transform.scale(self.image, (200, 200))
         self.rect = self.image.get_rect()
         self.barrel = None
+        self.lastBarrel = None
 
     def update(self):
         global movesCoords, movesCoordsMoreSpeed, movesCoordsSlow
@@ -183,11 +184,30 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.image = pygame.transform.flip(self.image, True, False)
         if self.barrel:
             movesCoords = movesCoordsSlow.copy()
+            self.lastBarrel = self.barrel
+        else:
+            movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
+        if self.lastBarrel:
+            if not pygame.sprite.collide_mask(self, self.lastBarrel):
+                self.lastBarrel = None
         elif self.adr_timer == 0:
             movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
 
     def move(self, mx, my):
         self.rect = self.rect.move(mx, my)
+        chunk = chunks[1][1]
+        for sprite in chunk.boxes + chunk.barrels:
+            if pygame.sprite.collide_mask(self, sprite) and not sprite is self.lastBarrel:
+                sprite.mask = pygame.mask.from_surface(
+                    pygame.transform.scale(sprite.image, (
+                        sprite.rect.w - 25, sprite.rect.h - 25
+                    ))
+                )
+                if pygame.sprite.collide_mask(self, sprite):
+                    self.rect = self.rect.move(-mx, -my)
+                    sprite.mask = pygame.mask.from_surface(sprite.image)
+                    break
+                sprite.mask = pygame.mask.from_surface(sprite.image)
 
 
 class M4(pygame.sprite.Sprite):  # класс валыны
@@ -447,6 +467,10 @@ class Barrel(pygame.sprite.Sprite):
                         if not barrel is self:
                             if pygame.sprite.collide_mask(barrel, self):
                                 barrel.hp = 0
+                if self.timer == 41:
+                    for car in carsGr:
+                        if pygame.sprite.collide_mask(car, self):
+                            car.hp = 0
         else:
             if pygame.sprite.collide_mask(self, player) and moving_barrel:
                 if player.barrel is None or player.barrel is self:
@@ -556,10 +580,48 @@ class Adrinaline(pygame.sprite.Sprite):
             self.kill()
 
 
+class AKM(pygame.sprite.Sprite):  # класс валыны
+    image = pygame.transform.scale(load_image('ak.png'), (200, 200))
+
+    def __init__(self, x, y, guy):
+        super().__init__(AKS)
+        self.image = AKM.image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.guy = guy
+
+    def update(self):
+        self.player = player.rect.center
+        self.player_x = self.player[0]
+        self.player_y = self.player[1]
+        self.self_x = self.rect.center[0]
+        self.self_y = self.rect.center[1]
+        self.sight_x = self.self_x - self.player_x
+        self.sight_y = self.player_y - self.self_y
+        if self.sight_x == 0:
+            self.sight_x = 0.001
+        self.tg = self.sight_y / self.sight_x
+
+        self.angle = math.degrees(math.atan(self.tg))
+        if self.sight_x > 0:
+            self.image = pygame.transform.flip(AKM.image, True, False)
+            self.image = rot_center(self.image, self.angle)
+            self.rect = self.image.get_rect()
+        else:
+            self.image = rot_center(AKM.image, self.angle)
+            self.rect = self.image.get_rect()
+        self.rect.centerx = self.guy.rect.centerx + 10
+        self.rect.centery = self.guy.rect.centery + 10
+
+    def move(self, mx, my):
+        self.rect = self.rect.move(mx, my)
+
+
 class Enemy(pygame.sprite.Sprite):
     speed = 4
-    pos1 = pygame.transform.scale(load_image('enemy1.png'), (167, 167))
-    pos2 = pygame.transform.scale(load_image('enemy2.png'), (167, 167))
+    pos1 = pygame.transform.scale(load_image('enemy1.png'), (200, 200))
+    pos2 = pygame.transform.scale(load_image('enemy2.png'), (200, 200))
     walking = 0
 
     def __init__(self, x=None, y=None, chunk=None):
@@ -571,6 +633,7 @@ class Enemy(pygame.sprite.Sprite):
         self.chunk = chunk
         if x and y:
             self.rect.x, self.rect.y = x, y
+        self.ak = AKM(self.rect.x, self.rect.y, self)
 
     def update(self):
         if pygame.sprite.spritecollide(self, player_bullets, False):
@@ -580,6 +643,8 @@ class Enemy(pygame.sprite.Sprite):
                     self.hp -= 20
         if self.hp <= 0:
             self.kill()
+            AKS.remove(self.ak)
+            self.ak.kill()
             player.score += 100
         if world_pos == 1:
             self.image = self.pos1
@@ -601,7 +666,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.way == 'up':
                 self.move(0, self.speed)
             if self.way == 'down':
-                self.move(0, 0 - self.speed)
+                self.move(0, -self.speed)
             if self.way == 'right':
                 self.move(self.speed, 0)
             if self.way == 'left':
@@ -609,9 +674,9 @@ class Enemy(pygame.sprite.Sprite):
             if self.way == 'ur':
                 self.move(self.speed * 0.75, self.speed * 0.75)
             if self.way == 'dr':
-                self.move(self.speed * 0.75, 0 - self.speed * 0.75)
+                self.move(self.speed * 0.75, -self.speed * 0.75)
             if self.way == 'dl':
-                self.move(0 - self.speed * 0.75, 0 - self.speed * 0.75)
+                self.move(0 - self.speed * 0.75, -self.speed * 0.75)
             if self.way == 'ul':
                 self.move(0 - self.speed * 0.75, self.speed * 0.75)
         else:
@@ -630,58 +695,26 @@ class Enemy(pygame.sprite.Sprite):
                         break
 
 
-class AKM(pygame.sprite.Sprite):  # класс валыны
-    image = pygame.transform.scale(load_image('ak.png'), (200, 200))
-
-    def __init__(self, x, y):
-        super().__init__(AKS)
-        self.image = AKM.image
-        self.image = pygame.transform.scale(self.image, (200, 200))
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-
-    def update(self):
-        self.player = player.rect.center
-        self.player_x = self.player[0]
-        self.player_y = self.player[1]
-        self.self_x = self.rect.center[0]
-        self.self_y = self.rect.center[1]
-        self.sight_x = self.self_x - self.player_x
-        self.sight_y = self.player_y - self.self_y
-        if self.sight_x == 0:
-            self.sight_x = 0.001
-        self.tg = self.sight_y / self.sight_x
-
-        self.angle = math.degrees(math.atan(self.tg))
-        if self.sight_x > 0:
-            self.image = pygame.transform.flip(AKM.image, True, False)
-            self.image = rot_center(self.image, self.angle)
-        else:
-            self.image = rot_center(AKM.image, self.angle)
-            self.rect = self.image.get_rect()
-
-
 class Car(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("car.png"), (600, 600))
+    image = pygame.transform.scale(load_image("car.png"), (300, 300))
+    imageMask = pygame.transform.scale(load_image("carMask.png"), (300, 300))
     boom = load_image('boom.png')
     timer = 50
     k = 1
 
     def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
+        self.image = Car.image
+        self.imageMask = Car.imageMask
         if random.choice((1, 0)) == 1:
             self.image = pygame.transform.flip(self.image, True, False)
         self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.image)
+        self.mask = pygame.mask.from_surface(self.imageMask)
         self.hp = 20
         self.timer = 50
         if x and y:
             self.rect.x, self.rect.y = x, y
-        if chunk:
-            self.chunk = chunk
-        else:
-            self.chunk = None
+        self.chunk = chunk
 
     def update(self):
         if self.hp <= 0:
@@ -699,9 +732,13 @@ class Car(pygame.sprite.Sprite):
                             box.hp = 0
                 if self.timer == 40:
                     for barrel in barrels:
-                        if not barrel is self:
-                            if pygame.sprite.collide_mask(barrel, self):
-                                barrel.hp = 0
+                        if pygame.sprite.collide_mask(barrel, self):
+                            barrel.hp = 0
+                if self.timer == 41:
+                    for car in carsGr:
+                        if not car is self:
+                            if pygame.sprite.collide_mask(car, self):
+                                car.hp = 0
         if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
             player.health -= 90
 
@@ -736,27 +773,50 @@ class Chunk(pygame.sprite.Sprite):
         for i in range(self.boxesValue):  # Спавн коробок
             box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
                       y=random.randrange(self.rect.y, self.rect.y + 1080 - 300))
-            while pygame.sprite.spritecollide(box, boxes, False):
+            while pygame.sprite.spritecollide(box, self.boxes, False):
                 box.kill()
-                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300))
+                box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                          y=random.randrange(self.rect.y, self.rect.y + 1080 - 300))
             self.boxes.append(box)
             boxes.add(box)
 
         self.barrelsValue = random.randrange(1, 3)
         self.barrels = []
         for i in range(self.barrelsValue):  # Спавн бочек
-            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300),
+            barl = Barrel(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                          y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
                           chunk=self)
-            while pygame.sprite.spritecollide(barl, boxes, False) or \
-                    pygame.sprite.spritecollide(barl, barrels, False):
+            while pygame.sprite.spritecollide(barl, self.boxes, False) or \
+                    pygame.sprite.spritecollide(barl, self.barrels, False):
                 barl.kill()
-                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
-                              y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300),
+                barl = Barrel(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                              y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
                               chunk=self)
             self.barrels.append(barl)
             barrels.add(barl)
+
+        # self.carsValue = random.randrange(0, 12)
+        # if self.carsValue >= 11:
+        #     self.carsValue = 2
+        # elif self.carsValue >= 7:
+        #     self.carsValue = 1
+        # else:
+        #     self.carsValue = 0
+        # self.cars = []
+        # for i in range(self.carsValue):
+        #     car = Car(x=random.randrange(self.rect.x, self.rect.x + 1080 - 500),
+        #               y=random.randrange(self.rect.y, self.rect.y + 1080 - 500),
+        #               chunk=self)
+        #     while pygame.sprite.spritecollide(car, self.boxes, False) or \
+        #             pygame.sprite.spritecollide(car, self.barrels, False) or \
+        #             pygame.sprite.spritecollide(car, self.cars, False):
+        #         car.kill()
+        #         car = Car(x=random.randrange(self.rect.x, self.rect.x + 1080 - 500),
+        #                   y=random.randrange(self.rect.y, self.rect.y + 1080 - 500),
+        #                   chunk=self)
+        #     self.cars.append(car)
+        #     carsGr.add(car)
+
         self.pos = poss
         self.playerIsHere = False
 
