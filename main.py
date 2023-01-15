@@ -389,6 +389,40 @@ class Adrinaline(pygame.sprite.Sprite):
             self.kill()
 
 
+class Enemy(pygame.sprite.Sprite):
+    speed = 10
+    pos1 = pygame.transform.scale(load_image('enemy1.png'), (167, 167))
+    pos2 = pygame.transform.scale(load_image('enemy2.png'), (167, 167))
+
+    def __init__(self, x=None, y=None):
+        super().__init__()
+        self.hp = 100
+        self.image = self.pos1
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        if world_pos == 1:
+            self.image = self.pos1
+            self.rect = self.image.get_rect()
+            self.mask = pygame.mask.from_surface(self.image)
+        else:
+            self.image = self.pos2
+            self.rect = self.image.get_rect()
+            self.mask = pygame.mask.from_surface(self.image)
+        self.center = self.rect.center
+        self.player = player.rect.center
+        self.mx, self.my = self.center[0], self.center[1]
+        self.px, self.py = self.player[0], self.player[1]
+        self.dx = self.px - self.mx
+        self.dy = self.py - self.my
+        self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
+        if self.dr > 600:
+            self.rect = self.rect.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
+
+
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
         super().__init__()
