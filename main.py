@@ -18,11 +18,14 @@ pygame.mixer.music.play()
 
 m4_shot = pygame.mixer.Sound('sounds\\AK.mp3')
 m4_shot.set_volume(1.5)
+ak_shot = pygame.mixer.Sound('sounds\\M4.mp3')
+ak_shot.set_volume(1.5)
 walking = pygame.mixer.Sound('sounds\\running.mp3')
 walking.set_volume(1.5)
 blowing = pygame.mixer.Sound('sounds\\boom.mp3')
 blowing.set_volume(1.5)
 
+enemy_bullets = pygame.sprite.Group()
 emenies = pygame.sprite.Group()  # создание групп спрайтов
 boxes = pygame.sprite.Group()
 guns = pygame.sprite.Group()
@@ -36,7 +39,7 @@ player_group = pygame.sprite.Group()
 messages = pygame.sprite.Group()
 carsGr = pygame.sprite.Group()
 all_gropus = [flors, boxes, barrels, adrLineGr, ammoGr, carsGr,
-              emenies, player_group, player_bullets, AKS, guns, messages]
+              emenies, player_group, player_bullets, enemy_bullets, AKS, guns, messages]
 
 moving_up, moving_down, moving_left, \
 moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
@@ -642,8 +645,10 @@ class Enemy(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
+        self.say_bb = True
         self.say_hi = True
         self.hp = 100
+        self.kd = 0
         self.image = self.pos1
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
@@ -653,12 +658,17 @@ class Enemy(pygame.sprite.Sprite):
         self.ak = AKM(self.rect.x, self.rect.y, self)
 
     def update(self):
+        self.kd += 1
+        if self.kd % 20 == 0:
+            E_Bullet(self.rect.center)
         if pygame.sprite.spritecollide(self, player_bullets, False):
             for blt in player_bullets:
                 if pygame.sprite.collide_mask(self, blt):
                     blt.kill()
                     self.hp -= 20
         if self.hp <= 0:
+            self.voise = pygame.mixer.Sound(os.path.join('rip', random.choice(os.listdir('rip'))))
+            self.voise.play()
             self.kill()
             AKS.remove(self.ak)
             self.ak.kill()
@@ -677,10 +687,15 @@ class Enemy(pygame.sprite.Sprite):
         self.dy = self.py - self.my
         self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
         if self.dr < 1000:
+
+            if player.health <= 0 and self.say_bb:
+                self.voise = pygame.mixer.Sound(os.path.join('killing', random.choice(os.listdir('killing'))))
+                self.voise.play()
+                self.say_bb = False
             if random.choice(range(700)) == 1 or self.say_hi:
                 self.say_hi = False
-                voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
-                voise.play()
+                self.voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
+                self.voise.play()
         if 400 < self.dr < 1200 and self.walking == 0:
             self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
         elif self.walking != 0:
@@ -716,68 +731,59 @@ class Enemy(pygame.sprite.Sprite):
                         self.chunk = chunk
                         break
 
+class E_Bullet(pygame.sprite.Sprite):  # класс пулaи
+    image = load_image('bullet.png')
+    kd = 10
+    kdNow = 0
+    kdLive = 90
 
-class Car(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("car.png"), (300, 300))
-    imageMask = pygame.transform.scale(load_image("carMask.png"), (300, 300))
-    boom = load_image('boom.png')
-    timer = 50
-    k = 1
+    def __init__(self, pos):
+        if P_Bullet.kdNow == 8:
+            ak_shot.stop()
+        if P_Bullet.kdNow >= P_Bullet.kd:
+            super().__init__(enemy_bullets)
+            ak_shot.play()
+            self.image = P_Bullet.image
+            self.rect = self.image.get_rect()
+            self.rect.center = pos
+            self.mask = pygame.mask.from_surface(self.image)
+            self.player = player.rect.center
+            self.player_x = self.player[0]
+            self.player_y = self.player[1]
+            self.self_x = self.rect.center[0]
+            self.self_y = self.rect.center[1]
+            self.sight_x = self.player_x - self.self_x
+            self.sight_y = self.player_y - self.self_y
+            self.speed = (self.sight_x ** 2 + self.sight_y ** 2) ** (1 / 2)
+            if self.speed == 0:
+                self.speed = 0.01
 
-    def __init__(self, x=None, y=None, chunk=None):
-        super().__init__()
-        self.image = Car.image
-        self.imageMask = Car.imageMask
-        if random.choice((1, 0)) == 1:
-            self.image = pygame.transform.flip(self.image, True, False)
-        self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.imageMask)
-        self.hp = 20
-        self.timer = 50
-        if x and y:
-            self.rect.x, self.rect.y = x, y
-        self.chunk = chunk
+            self.vx = bullet_speed * self.sight_x / self.speed * 2
+            self.vy = bullet_speed * self.sight_y / self.speed * 2
+            self.vx *= 3
+            self.vy *= 3
+            self.rect = self.rect.move(self.vx, self.vy)
+            self.vx /= 4
+            self.vy /= 4
+            try:
+                self.vx += random.choice(range(0 - player.accuracy, player.accuracy))
+                self.vy += random.choice(range(0 - player.accuracy, player.accuracy))
+            except IndexError:  # При подборе аптечки
+                pass
+            P_Bullet.kdNow = 0
+            self.kdLiveNow = 0
+        else:
+            P_Bullet.kdNow += 1
 
     def update(self):
-        if self.hp <= 0:
-            self.timer -= 1
-            if self.timer <= 80:
-                self.center = self.rect.center
-                self.image = pygame.transform.scale(self.boom, (round(800 * self.k ** 2), round(800 * self.k ** 2)))
-                self.rect = self.image.get_rect()
-                self.mask = pygame.mask.from_surface(self.image)
-                self.rect.center = self.center
-                self.k -= 0.02
-                if self.timer == 48:
-                    for box in boxes:
-                        if pygame.sprite.collide_mask(box, self):
-                            box.hp = 0
-                if self.timer == 40:
-                    for barrel in barrels:
-                        if pygame.sprite.collide_mask(barrel, self):
-                            barrel.hp = 0
-                if self.timer == 41:
-                    for car in carsGr:
-                        if not car is self:
-                            if pygame.sprite.collide_mask(car, self):
-                                car.hp = 0
-        if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
-            player.health -= 90
-
-        if self.timer <= 0:
+        if pygame.sprite.collide_mask(self, player):
             self.kill()
-            player.score += 75
-
-        if pygame.sprite.spritecollide(self, player_bullets, False):
-            for blt in player_bullets:
-                if pygame.sprite.collide_mask(self, blt):
-                    blt.kill()
-                    if self.hp <= 0:
-                        pass
-                    else:
-                        self.hp -= 1
-                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
-                    break
+            player.health -= 10
+        self.rect = self.rect.move(self.vx, self.vy)
+        if self.kdLiveNow < P_Bullet.kdLive:
+            self.kdLiveNow += 1
+        else:
+            self.kill()
 
 
 class Chunk(pygame.sprite.Sprite):
