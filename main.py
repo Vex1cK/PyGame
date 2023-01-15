@@ -19,6 +19,7 @@ player_bullets = pygame.sprite.Group()
 flors = pygame.sprite.Group()
 adrLineGr = pygame.sprite.Group()
 ammoGr = pygame.sprite.Group()
+AKS = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 messages = pygame.sprite.Group()
 all_gropus = [flors, walls, boxes, barrels, adrLineGr, ammoGr,
@@ -124,6 +125,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
     adr_timer = 0
     speed = 12
     accuracy = 1
+    score = 0
 
     def __init__(self, group):
         super().__init__(group)
@@ -289,7 +291,7 @@ class Camera:
 
 
 class Flor(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("flor.png"), (250, 250))
+    image = pygame.transform.scale(load_image("flor.png"), (1000, 1000))
 
     def __init__(self, x, y):
         super().__init__(flors)
@@ -302,7 +304,7 @@ class BoardFlor():
     def __init__(self):
         for i in range(11):
             for j in range(11):
-                viewBoard[i][j] = Flor((j - 5) * 250, (i - 5) * 250)
+                viewBoard[i][j] = Flor((j - 5) * 1000, (i - 5) * 1000)
 
         self.playerNowX, self.playerNowY = 5, 5
         self.playerOldX, self.playerOldY = 5, 5
@@ -312,8 +314,8 @@ class BoardFlor():
         for i in range(len(viewBoard)):
             for j in range(len(viewBoard[i])):
                 fl = viewBoard[i][j]
-                if fl.rect.x < player.rect.centerx < fl.rect.x + 250 and \
-                        fl.rect.y < player.rect.centery < fl.rect.y + 250:
+                if fl.rect.x < player.rect.centerx < fl.rect.x + 1000 and \
+                        fl.rect.y < player.rect.centery < fl.rect.y + 1000:
                     self.playerOldX, self.playerOldY = self.playerNowX, self.playerNowY
                     self.playerNowX, self.playerNowY = j, i
                     r = False
@@ -329,22 +331,22 @@ class BoardFlor():
             if move[0] == 1:
                 for i in range(len(viewBoard)):
                     viewBoard[i] = viewBoard[i][1:] + [viewBoard[i][0]]
-                    viewBoard[i][-1].rect.x = viewBoard[i][-2].rect.x + 250
+                    viewBoard[i][-1].rect.x = viewBoard[i][-2].rect.x + 1000
                     self.playerNowX += 1
             elif move[0] == -1:
                 for i in range(len(viewBoard)):
                     viewBoard[i] = [viewBoard[i][-1]] + viewBoard[i][:-1]
-                    viewBoard[i][0].rect.x = viewBoard[i][1].rect.x - 250
+                    viewBoard[i][0].rect.x = viewBoard[i][1].rect.x - 1000
                     self.playerNowX -= 1
             if move[1] == 1:
                 viewBoard[:] = viewBoard[1:] + [viewBoard[0]]
                 for fl in viewBoard[-1]:
-                    fl.rect.y = viewBoard[-2][1].rect.y + 250
+                    fl.rect.y = viewBoard[-2][1].rect.y + 1000
                 self.playerNowY += 1
             elif move[1] == -1:
                 viewBoard[:] = [viewBoard[-1]] + viewBoard[:-1]
                 for fl in viewBoard[0]:
-                    fl.rect.y = viewBoard[1][1].rect.y - 250
+                    fl.rect.y = viewBoard[1][1].rect.y - 1000
                 self.playerNowY -= 1
 
 
@@ -379,6 +381,7 @@ class Box(pygame.sprite.Sprite):
                     if self.hp <= 0:
                         if random.randint(0, 11) > 8:
                             Adrinaline(x=self.rect.x, y=self.rect.y)
+                        player.score += 20
                         self.kill()
                     else:
                         self.hp -= 1
@@ -390,6 +393,7 @@ class Box(pygame.sprite.Sprite):
             else:
                 if random.randint(0, 12) > 9:
                     Adrinaline(x=self.rect.x, y=self.rect.y)
+            player.score += 20
             self.kill()
 
 
@@ -480,7 +484,13 @@ class Barrel(pygame.sprite.Sprite):
         if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
             player.health -= 48
 
+        if pygame.sprite.spritecollide(self, emenies, False) and self.timer == 49:
+            for guy in emenies:
+                if pygame.sprite.collide_mask(self, guy):
+                    guy.hp -= 50
+
         if self.timer <= 0:
+            player.score += 50
             self.kill()
 
         if pygame.sprite.spritecollide(self, player_bullets, False):
@@ -519,6 +529,7 @@ class Ammo(pygame.sprite.Sprite):
         global ammo
         if pygame.sprite.collide_mask(player, self):
             ammo += 30
+            player.score += 20
             self.kill()
 
 
@@ -541,6 +552,7 @@ class Adrinaline(pygame.sprite.Sprite):
             player.speed = 15
             player.accuracy = 0
             movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
+            player.score += 20
             self.kill()
 
 
@@ -548,6 +560,7 @@ class Enemy(pygame.sprite.Sprite):
     speed = 4
     pos1 = pygame.transform.scale(load_image('enemy1.png'), (167, 167))
     pos2 = pygame.transform.scale(load_image('enemy2.png'), (167, 167))
+    walking = 0
 
     def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
@@ -560,6 +573,14 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.x, self.rect.y = x, y
 
     def update(self):
+        if pygame.sprite.spritecollide(self, player_bullets, False):
+            for blt in player_bullets:
+                if pygame.sprite.collide_mask(self, blt):
+                    blt.kill()
+                    self.hp -= 20
+        if self.hp <= 0:
+            self.kill()
+            player.score += 100
         if world_pos == 1:
             self.image = self.pos1
             self.mask = pygame.mask.from_surface(self.image)
@@ -573,8 +594,31 @@ class Enemy(pygame.sprite.Sprite):
         self.dx = self.px - self.mx
         self.dy = self.py - self.my
         self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
-        if self.dr > 400 and self.dr < 1200:
+        if 400 < self.dr < 1200 and self.walking == 0:
             self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
+        elif self.walking != 0:
+            self.walking -= 1
+            if self.way == 'up':
+                self.move(0, self.speed)
+            if self.way == 'down':
+                self.move(0, 0 - self.speed)
+            if self.way == 'right':
+                self.move(self.speed, 0)
+            if self.way == 'left':
+                self.move(0 - self.speed, 0)
+            if self.way == 'ur':
+                self.move(self.speed * 0.75, self.speed * 0.75)
+            if self.way == 'dr':
+                self.move(self.speed * 0.75, 0 - self.speed * 0.75)
+            if self.way == 'dl':
+                self.move(0 - self.speed * 0.75, 0 - self.speed * 0.75)
+            if self.way == 'ul':
+                self.move(0 - self.speed * 0.75, self.speed * 0.75)
+        else:
+            self.walking = 25
+            self.way = random.choice(('up', 'down', 'left', 'right', 'ur', 'dr', 'dl', 'ul'))
+        if self.dx < 0:
+            self.image = pygame.transform.flip(self.image, True, False)
 
     def move(self, x, y):
         self.rect = self.rect.move(x, y)
@@ -584,6 +628,39 @@ class Enemy(pygame.sprite.Sprite):
                     if pygame.sprite.collide_mask(self, chunk):
                         self.chunk = chunk
                         break
+
+
+class AKM(pygame.sprite.Sprite):  # класс валыны
+    image = pygame.transform.scale(load_image('ak.png'), (200, 200))
+
+    def __init__(self, x, y):
+        super().__init__(AKS)
+        self.image = AKM.image
+        self.image = pygame.transform.scale(self.image, (200, 200))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        self.player = player.rect.center
+        self.player_x = self.player[0]
+        self.player_y = self.player[1]
+        self.self_x = self.rect.center[0]
+        self.self_y = self.rect.center[1]
+        self.sight_x = self.self_x - self.player_x
+        self.sight_y = self.player_y - self.self_y
+        if self.sight_x == 0:
+            self.sight_x = 0.001
+        self.tg = self.sight_y / self.sight_x
+
+        self.angle = math.degrees(math.atan(self.tg))
+        if self.sight_x > 0:
+            self.image = pygame.transform.flip(AKM.image, True, False)
+            self.image = rot_center(self.image, self.angle)
+        else:
+            self.image = rot_center(AKM.image, self.angle)
+            self.rect = self.image.get_rect()
+
 
 class Car(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image("car.png"), (600, 600))
@@ -630,6 +707,7 @@ class Car(pygame.sprite.Sprite):
 
         if self.timer <= 0:
             self.kill()
+            player.score += 75
 
         if pygame.sprite.spritecollide(self, player_bullets, False):
             for blt in player_bullets:
@@ -641,6 +719,7 @@ class Car(pygame.sprite.Sprite):
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
+
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
@@ -697,6 +776,7 @@ boardFlor = BoardFlor()
 playerChunkPosOld = [0, 0]
 playerChunkPosNow = [0, 0]
 scope = load_image('scope.png')
+emenies.add(Enemy())
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 for i in range(3):
@@ -832,6 +912,8 @@ while True:
     else:
         hp_info = mag_font.render(str(player.health), True, (220, 20, 20))
     screen.blit(hp_info, (60, 925))
+    score_info = mag_font.render(str(player.score), True, (220, 220, 50))
+    screen.blit(score_info, (60, 30))
 
     if playerChunkPosNow != playerChunkPosOld:
         move = (
