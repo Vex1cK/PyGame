@@ -6,6 +6,7 @@ import random
 
 pygame.init()
 pygame.font.init()
+pygame.mouse.set_visible(False)
 size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
@@ -64,22 +65,12 @@ def load_image(name, colorkey=None):  # загрузка картинки
         image = image.convert_alpha()
     return image
 
-
-class Example(pygame.sprite.Sprite):  # пример спрайта и работы функции position
-    image = load_image('ex.jfif')
-
-    def __init__(self, group):
-        super().__init__(group)
-        self.image = Example.image
-        self.rect = self.image.get_rect()
-
-
 class Player(pygame.sprite.Sprite):  # класс игрока
     image = load_image('player_calm.png')
     player_reverse = False
     health = 100
     adr_timer = 0
-    speed = 12
+    speed = 15
     accuracy = 1
 
     def __init__(self, group):
@@ -96,7 +87,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
             self.adr_timer -= 1
         if self.adr_timer < 0:
             self.accuracy = 1
-            self.speed = 12
+            self.speed = 15
             self.adr_timer = 0
             movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
         if any((moving_up, moving_down, moving_left, moving_right)):
@@ -299,7 +290,10 @@ class Box(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None):
         super().__init__()
-        self.image = Box.image
+        randomValue = random.randint(100, 200)
+        self.image = pygame.transform.scale(Box.image, (randomValue, randomValue))
+        if random.choice((1, 0)) == 1:
+            self.image = pygame.transform.flip(self.image, True, False)
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 5
@@ -329,10 +323,15 @@ class Barrel(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None):
         super().__init__()
-        randomValue = random.randint(100, 200)
-        self.image = pygame.transform.scale(Barrel.image, (randomValue, randomValue))
-        randomValue = random.randint(20, 40) + randomValue
-        self.boom = pygame.transform.scale(Barrel.boom, (randomValue, randomValue))
+        if random.choice((1, 0)) == 1:
+            self.image = pygame.transform.flip(self.image, True, False)
+        if random.choice((1, 0)) == 1:
+            self.boom = pygame.transform.flip(self.boom, True, False)
+        self.rand = random.choice((4, 3, 2, 1, 0))
+        if self.rand == 1:
+            self.image = rot_center(self.image, 90)
+        elif self.rand == 2:
+            self.image = rot_center(self.image, 270)
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 2
@@ -368,7 +367,7 @@ class Barrel(pygame.sprite.Sprite):
 
 
 class Adrinaline(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image('adr.png'), (150, 150))
+    image = pygame.transform.scale(load_image('adr.png'), (100, 100))
 
     def __init__(self, x=None, y=None):
         super().__init__(adrLineGr)
@@ -383,7 +382,7 @@ class Adrinaline(pygame.sprite.Sprite):
         if pygame.sprite.collide_mask(self, player):
             player.health = 120
             player.adr_timer = 1000
-            player.speed = 15
+            player.speed = 25
             player.accuracy = 0
             movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
             self.kill()
@@ -422,6 +421,8 @@ class Enemy(pygame.sprite.Sprite):
         if self.dr > 600:
             self.rect = self.rect.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
 
+    def update(self, pos):
+        self.rect.center = pos
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
@@ -472,10 +473,10 @@ player = Player(player_group)  # спрайты
 gun = M4(guns)
 clock = pygame.time.Clock()
 camera = Camera()
-ex = Example(emenies)
 boardFlor = BoardFlor()
 playerChunkPosOld = [0, 0]
 playerChunkPosNow = [0, 0]
+scope = load_image('scope.png')
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 for i in range(3):
@@ -512,6 +513,7 @@ while True:
         if event.type == pygame.MOUSEMOTION:
             pos = event.pos
             gun.update(pos)
+
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
@@ -570,7 +572,7 @@ while True:
     chunksDraw.draw(screen)
     for group in all_gropus:
         group.draw(screen)
-
+    screen.blit(scope, (pos[0] - 50, pos[1] - 50))
     mag_font = pygame.font.Font(None, 200)
     if mag >= 10:
         mag_info = mag_font.render(str(mag), True, (240, 240, 240))
@@ -668,6 +670,5 @@ while True:
             chunks.insert(0, newRow)
 
         playerChunkPosOld = playerChunkPosNow.copy()
-
     pygame.display.flip()
     clock.tick(60)
