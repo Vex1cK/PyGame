@@ -23,9 +23,6 @@ walking.set_volume(1.5)
 blowing = pygame.mixer.Sound('sounds\\boom.mp3')
 blowing.set_volume(1.5)
 
-
-
-
 emenies = pygame.sprite.Group()  # создание групп спрайтов
 boxes = pygame.sprite.Group()
 guns = pygame.sprite.Group()
@@ -38,8 +35,10 @@ AKS = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 messages = pygame.sprite.Group()
 carsGr = pygame.sprite.Group()
+particles = pygame.sprite.Group()
 all_gropus = [flors, boxes, barrels, adrLineGr, ammoGr, carsGr,
-              emenies, player_group, player_bullets, AKS, guns, messages]
+              emenies, player_group, player_bullets, AKS, guns,
+              particles, messages]
 
 moving_up, moving_down, moving_left, \
 moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
@@ -53,6 +52,7 @@ frames_count = 0
 bullet_speed = 12
 reload_timer = 0
 reload_time = 120
+graviti = 0.2
 
 mag = 30
 ammo = 120
@@ -150,6 +150,8 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.rect = self.image.get_rect()
         self.barrel = None
         self.lastBarrel = None
+        self.deadTimer = 120
+        self.health = Player.health
 
     def update(self):
         global movesCoords, movesCoordsMoreSpeed, movesCoordsSlow
@@ -208,22 +210,30 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.lastBarrel = None
         elif self.adr_timer == 0:
             movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
+        if self.health <= 0:
+            gun.kill()
+            self.health = 0
+            self.deadTimer -= 1
+        if self.deadTimer <= 0:
+            self.kill()
 
     def move(self, mx, my):
-        self.rect = self.rect.move(mx, my)
-        chunk = chunks[1][1]
-        for sprite in chunk.boxes + chunk.barrels:
-            if pygame.sprite.collide_mask(self, sprite) and not sprite is self.lastBarrel:
-                sprite.mask = pygame.mask.from_surface(
-                    pygame.transform.scale(sprite.image, (
-                        sprite.rect.w - 25, sprite.rect.h - 25
-                    ))
-                )
-                if pygame.sprite.collide_mask(self, sprite):
-                    self.rect = self.rect.move(-mx, -my)
-                    sprite.mask = pygame.mask.from_surface(sprite.image)
-                    break
-                sprite.mask = pygame.mask.from_surface(sprite.image)
+        if self.health > 0:
+            self.rect = self.rect.move(mx, my)
+            chunk = chunks[1][1]
+            for sprite in chunk.boxes + chunk.barrels:
+                if sprite.alive():
+                    if pygame.sprite.collide_mask(self, sprite) and not sprite is self.lastBarrel:
+                        sprite.mask = pygame.mask.from_surface(
+                            pygame.transform.scale(sprite.image, (
+                                sprite.rect.w - 40, sprite.rect.h - 40
+                            ))
+                        )
+                        if pygame.sprite.collide_mask(self, sprite):
+                            self.rect = self.rect.move(-mx, -my)
+                            sprite.mask = pygame.mask.from_surface(sprite.image)
+                            break
+                        sprite.mask = pygame.mask.from_surface(sprite.image)
 
 
 class M4(pygame.sprite.Sprite):  # класс валыны
@@ -432,6 +442,31 @@ class Box(pygame.sprite.Sprite):
             player.score += 20
             boxes.remove(self)
             self.kill()
+            for _ in range(random.choice(range(7, 9))):
+                BoxParticles((self.rect.x, self.rect.y),
+                             *[random.choice([-6, -5, -4, -3, 3, 4, 5, 6]) for __ in range(2)])
+
+
+class BoxParticles(pygame.sprite.Sprite):
+    pieces = [load_image(f"boxParticl{i}.png") \
+              for i in range(1, 6)]
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(particles)
+        self.image = random.choice(self.pieces)
+        self.rect = self.image.get_rect()
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+        self.gravity = graviti
+        self.live = 32
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        self.live -= 1
+        if self.live <= 0:
+            self.kill()
 
 
 class Barrel(pygame.sprite.Sprite):
@@ -465,11 +500,16 @@ class Barrel(pygame.sprite.Sprite):
         global movesCoords, movesCoordsSlow, haveBarrelMoveMessage, barrelMoveMessage
         if self.timer == 49:
             blowing.play()
+            for _ in range(random.choice(range(14, 19))):
+                BarrelParticles((self.rect.centerx - 15, self.rect.centery - 15),
+                                *[random.choice([-8, -7, -6, -5, 5, 6, 7, 8]) for __ in range(2)])
         if self.hp <= 0:
             if self.haveMoved:
                 self.haveMoved = False
                 player.barrel = None
             self.timer -= 1
+            if self.timer == 49:
+                self.chunk.barrels.pop(self.chunk.barrels.index(self))
             if self.timer <= 80:
                 self.center = self.rect.center
                 self.image = pygame.transform.scale(self.boom, (round(600 * self.k ** 2), round(600 * self.k ** 2)))
@@ -486,10 +526,10 @@ class Barrel(pygame.sprite.Sprite):
                         if not barrel is self:
                             if pygame.sprite.collide_mask(barrel, self):
                                 barrel.hp = 0
-                if self.timer == 41:
-                    for car in carsGr:
-                        if pygame.sprite.collide_mask(car, self):
-                            car.hp = 0
+                # if self.timer == 41:
+                #     for car in carsGr:
+                #         if pygame.sprite.collide_mask(car, self):
+                #             car.hp = 0
         else:
             if pygame.sprite.collide_mask(self, player) and moving_barrel:
                 if player.barrel is None or player.barrel is self:
@@ -557,16 +597,42 @@ class Barrel(pygame.sprite.Sprite):
             self.rect.centery = player.rect.centery
 
 
-class Ammo(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("ammo.png"), (100, 100))
+class BarrelParticles(pygame.sprite.Sprite):
+    pieces = [load_image(f"barrelParticl{i}.png") \
+              for i in range(1, 6)]
 
-    def __init__(self, x=None, y=None):
+    def __init__(self, pos, dx, dy):
+        super().__init__(particles)
+        self.image = random.choice(self.pieces)
+        self.rect = self.image.get_rect()
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+        if random.choice((0, 1)) == 1:
+            self.gravity = graviti * -2
+        else:
+            self.gravity = graviti * 2
+        self.live = 32
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        self.live -= 1
+        if self.live <= 0:
+            self.kill()
+
+
+class Ammo(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("ammo.png"), (150, 150))
+
+    def __init__(self, x=None, y=None, chunk=None):
         super().__init__(ammoGr)
         self.image = Ammo.image
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         if x and y:
             self.rect.x, self.rect.y = x, y
+        self.chunk = chunk
 
     def update(self):
         global ammo
@@ -594,7 +660,7 @@ class Adrinaline(pygame.sprite.Sprite):
             player.adr_timer = 600
             player.speed = 15
             player.accuracy = 0
-            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
+            movesCoords = movesCoordsMoreSpeed.copy()
             player.score += 20
             self.kill()
 
@@ -708,74 +774,75 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.rect.move(x, y)
         if self.chunk:
             if not pygame.sprite.collide_mask(self, self.chunk):
-                for chunk in chunks:
-                    if pygame.sprite.collide_mask(self, chunk):
-                        self.chunk = chunk
-                        break
+                for row in chunks:
+                    for chunk in row:
+                        if pygame.sprite.collide_mask(self, chunk):
+                            self.chunk = chunk
+                            break
 
 
-class Car(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("car.png"), (300, 300))
-    imageMask = pygame.transform.scale(load_image("carMask.png"), (300, 300))
-    boom = load_image('boom.png')
-    timer = 50
-    k = 1
-
-    def __init__(self, x=None, y=None, chunk=None):
-        super().__init__()
-        self.image = Car.image
-        self.imageMask = Car.imageMask
-        if random.choice((1, 0)) == 1:
-            self.image = pygame.transform.flip(self.image, True, False)
-        self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.imageMask)
-        self.hp = 20
-        self.timer = 50
-        if x and y:
-            self.rect.x, self.rect.y = x, y
-        self.chunk = chunk
-
-    def update(self):
-        if self.hp <= 0:
-            self.timer -= 1
-            if self.timer <= 80:
-                self.center = self.rect.center
-                self.image = pygame.transform.scale(self.boom, (round(800 * self.k ** 2), round(800 * self.k ** 2)))
-                self.rect = self.image.get_rect()
-                self.mask = pygame.mask.from_surface(self.image)
-                self.rect.center = self.center
-                self.k -= 0.02
-                if self.timer == 48:
-                    for box in boxes:
-                        if pygame.sprite.collide_mask(box, self):
-                            box.hp = 0
-                if self.timer == 40:
-                    for barrel in barrels:
-                        if pygame.sprite.collide_mask(barrel, self):
-                            barrel.hp = 0
-                if self.timer == 41:
-                    for car in carsGr:
-                        if not car is self:
-                            if pygame.sprite.collide_mask(car, self):
-                                car.hp = 0
-        if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
-            player.health -= 90
-
-        if self.timer <= 0:
-            self.kill()
-            player.score += 75
-
-        if pygame.sprite.spritecollide(self, player_bullets, False):
-            for blt in player_bullets:
-                if pygame.sprite.collide_mask(self, blt):
-                    blt.kill()
-                    if self.hp <= 0:
-                        pass
-                    else:
-                        self.hp -= 1
-                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
-                    break
-
+# class Car(pygame.sprite.Sprite):
+#     image = pygame.transform.scale(load_image("car.png"), (300, 300))
+#     imageMask = pygame.transform.scale(load_image("carMask.png"), (300, 300))
+#     boom = load_image('boom.png')
+#     timer = 50
+#     k = 1
+#
+#     def __init__(self, x=None, y=None, chunk=None):
+#         super().__init__()
+#         self.image = Car.image
+#         self.imageMask = Car.imageMask
+#         if random.choice((1, 0)) == 1:
+#             self.image = pygame.transform.flip(self.image, True, False)
+#         self.rect = self.image.get_rect()
+#         self.mask = pygame.mask.from_surface(self.imageMask)
+#         self.hp = 20
+#         self.timer = 50
+#         if x and y:
+#             self.rect.x, self.rect.y = x, y
+#         self.chunk = chunk
+#
+#     def update(self):
+#         if self.hp <= 0:
+#             self.timer -= 1
+#             if self.timer <= 80:
+#                 self.center = self.rect.center
+#                 self.image = pygame.transform.scale(self.boom, (round(800 * self.k ** 2), round(800 * self.k ** 2)))
+#                 self.rect = self.image.get_rect()
+#                 self.mask = pygame.mask.from_surface(self.image)
+#                 self.rect.center = self.center
+#                 self.k -= 0.02
+#                 if self.timer == 48:
+#                     for box in boxes:
+#                         if pygame.sprite.collide_mask(box, self):
+#                             box.hp = 0
+#                 if self.timer == 40:
+#                     for barrel in barrels:
+#                         if pygame.sprite.collide_mask(barrel, self):
+#                             barrel.hp = 0
+#                 if self.timer == 41:
+#                     for car in carsGr:
+#                         if not car is self:
+#                             if pygame.sprite.collide_mask(car, self):
+#                                 car.hp = 0
+#         if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
+#             player.health -= 90
+#
+#         if self.timer <= 0:
+#             self.kill()
+#             player.score += 75
+#
+#         if pygame.sprite.spritecollide(self, player_bullets, False):
+#             for blt in player_bullets:
+#                 if pygame.sprite.collide_mask(self, blt):
+#                     blt.kill()
+#                     if self.hp <= 0:
+#                         pass
+#                     else:
+#                         self.hp -= 1
+#                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
+#                     break
+#
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
@@ -813,6 +880,37 @@ class Chunk(pygame.sprite.Sprite):
                               chunk=self)
             self.barrels.append(barl)
             barrels.add(barl)
+
+        self.guysValue = random.choice([0, 1])
+        self.guys = []
+        for i in range(self.guysValue):  # Спавн врагов
+            guy = Enemy(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                          y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                          chunk=self)
+            while pygame.sprite.spritecollide(guy, self.boxes, False) or \
+                    pygame.sprite.spritecollide(guy, self.barrels, False):
+                guy.ak.kill()
+                guy.kill()
+                guy = Enemy(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                              y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                              chunk=self)
+            self.guys.append(guy)
+            emenies.add(guy)
+
+        self.ammoValue = random.choice([0, 1, 2])
+        self.ammo = []
+        for i in range(self.ammoValue):  # Спавн патронов
+            ammo = Ammo(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                        y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                        chunk=self)
+            while pygame.sprite.spritecollide(ammo, self.boxes, False) or \
+                    pygame.sprite.spritecollide(ammo, self.barrels, False):
+                ammo.kill()
+                ammo = Ammo(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                            y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                            chunk=self)
+            self.ammo.append(ammo)
+            ammoGr.add(ammo)
 
         # self.carsValue = random.randrange(0, 12)
         # if self.carsValue >= 11:
@@ -855,7 +953,6 @@ boardFlor = BoardFlor()
 playerChunkPosOld = [0, 0]
 playerChunkPosNow = [0, 0]
 scope = load_image('scope.png')
-emenies.add(Enemy())
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 for i in range(3):
@@ -863,73 +960,81 @@ for i in range(3):
         chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
 
 while True:
-    if not(any((moving_up, moving_down, moving_left, moving_right))):
+    if not (any((moving_up, moving_down, moving_left, moving_right))):
         moving = False
         walking.stop()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             terminate()
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_w:
-                moving_up = True
-                if moving is False:
-                    walking.play()
-                moving = True
-            if event.key == pygame.K_s:
-                moving_down = True
-                if moving is False:
-                    walking.play()
-                moving = True
-            if event.key == pygame.K_a:
-                moving_left = True
-                if moving is False:
-                    walking.play()
-                moving = True
-            if event.key == pygame.K_d:
-                moving_right = True
-                if moving is False:
-                    walking.play()
-                moving = True
-            if event.key == pygame.K_f:
-                moving_barrel = True
-            if event.key == pygame.K_ESCAPE:
-                pos = escMenu()
-                if pos == 'EXIT':
-                    terminate()
-                else:
-                    guns.update(pos)
-                    moving_up, moving_down, moving_left, \
-                    moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
-                                                                                   False, False, False, False
-                    barrelMoveMessage = None
-                    pygame.mouse.set_visible(False)
+        if player.health > 0:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    moving_up = True
+                    if moving is False:
+                        walking.play()
+                    moving = True
+                if event.key == pygame.K_s:
+                    moving_down = True
+                    if moving is False:
+                        walking.play()
+                    moving = True
+                if event.key == pygame.K_a:
+                    moving_left = True
+                    if moving is False:
+                        walking.play()
+                    moving = True
+                if event.key == pygame.K_d:
+                    moving_right = True
+                    if moving is False:
+                        walking.play()
+                    moving = True
+                if event.key == pygame.K_f:
+                    moving_barrel = True
+                if event.key == pygame.K_ESCAPE:
+                    pos = escMenu()
+                    if pos == 'EXIT':
+                        terminate()
+                    else:
+                        guns.update(pos)
+                        moving_up, moving_down, moving_left, \
+                        moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
+                                                                                       False, False, False, False
+                        barrelMoveMessage = None
+                        pygame.mouse.set_visible(False)
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_w:
-                moving_up = False
-            if event.key == pygame.K_s:
-                moving_down = False
-            if event.key == pygame.K_a:
-                moving_left = False
-            if event.key == pygame.K_d:
-                moving_right = False
-            if event.key == pygame.K_r and reload_timer == 0:
-                reload_timer += 1
-            if event.key == pygame.K_f:
-                moving_barrel = False
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_w:
+                    moving_up = False
+                if event.key == pygame.K_s:
+                    moving_down = False
+                if event.key == pygame.K_a:
+                    moving_left = False
+                if event.key == pygame.K_d:
+                    moving_right = False
+                if event.key == pygame.K_r and reload_timer == 0:
+                    reload_timer += 1
+                if event.key == pygame.K_f:
+                    moving_barrel = False
 
-        if event.type == pygame.MOUSEMOTION:
-            pos = event.pos
-            gun.update(pos)
+            if event.type == pygame.MOUSEMOTION:
+                pos = event.pos
+                gun.update(pos)
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                shooting = True
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    shooting = True
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                shooting = False
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    shooting = False
+        else:
+            moving_up, moving_down, moving_left, \
+            moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
+                                                                           False, False, False, False
+            if barrelMoveMessage:
+                barrelMoveMessage.kill()
+            barrelMoveMessage = None
 
     camera.update(player)
     for group in all_gropus:
@@ -980,7 +1085,8 @@ while True:
 
     for group in all_gropus:
         group.draw(screen)
-    screen.blit(scope, (pos[0] - 50, pos[1] - 50))
+    if player.health > 0:
+        screen.blit(scope, (pos[0] - 50, pos[1] - 50))
     mag_font = pygame.font.Font(None, 200)
     if mag >= 10:
         mag_info = mag_font.render(str(mag), True, (240, 240, 240))
