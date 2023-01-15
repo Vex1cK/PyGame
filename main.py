@@ -18,12 +18,16 @@ player_bullets = pygame.sprite.Group()
 flors = pygame.sprite.Group()
 adrLineGr = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
-chunksDraw = pygame.sprite.Group()
-all_gropus = [flors, walls, boxes, barrels, adrLineGr, emenies, player_group, player_bullets, guns]
+messages = pygame.sprite.Group()
+all_gropus = [flors, walls, boxes, barrels, adrLineGr, emenies, player_group, player_bullets, guns, messages]
 
-moving_up, moving_down, moving_left, moving_right, shooting = False, False, False, False, False
+moving_up, moving_down, moving_left, \
+moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
+                                                               False, False, False, False
+barrelMoveMessage = None
 movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
 movesCoordsMoreSpeed = {"UP": [0, -7], "DOWN": [0, 7], "LEFT": [-7, 0], "RIGHT": [7, 0]}
+movesCoordsSlow = {"UP": [0, -2], "DOWN": [0, 2], "LEFT": [-2, 0], "RIGHT": [2, 0]}
 world_pos = 0
 frames_count = 0
 bullet_speed = 12
@@ -33,7 +37,7 @@ reload_time = 120
 mag = 30
 ammo = 120
 pos = (860, 440)
-viewBoard = [[0] * 9 for _ in range(9)]
+viewBoard = [[0] * 11 for _ in range(11)]
 
 
 def rot_center(image, angle):  # поворот картинки
@@ -86,18 +90,25 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.image = Player.image
         self.image = pygame.transform.scale(self.image, (200, 200))
         self.rect = self.image.get_rect()
+        self.barrel = None
 
     def update(self):
-        global movesCoords, movesCoordsMoreSpeed
+        global movesCoords, movesCoordsMoreSpeed, movesCoordsSlow
         if self.adr_timer > 0:
             if self.adr_timer == 1:
                 self.adr_timer -= 1
             self.adr_timer -= 1
+            if not self.barrel:
+                movesCoords = movesCoordsMoreSpeed.copy()
         if self.adr_timer < 0:
             self.accuracy = 1
             self.speed = 12
             self.adr_timer = 0
-            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
+            self.health = int(((self.health / 120) * 100) // 1)
+            if not moving_barrel:
+                movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
+                movesCoordsMoreSpeed = {"UP": [0, -7], "DOWN": [0, 7], "LEFT": [-7, 0], "RIGHT": [7, 0]}
+                movesCoordsSlow = {"UP": [0, -2], "DOWN": [0, 2], "LEFT": [-2, 0], "RIGHT": [2, 0]}
         if any((moving_up, moving_down, moving_left, moving_right)):
             if world_pos == 1:
                 self.image = load_image('player_moving_1.png')
@@ -128,6 +139,10 @@ class Player(pygame.sprite.Sprite):  # класс игрока
             self.image = pygame.transform.scale(self.image, (200, 200))
             if self.player_reverse is True:
                 self.image = pygame.transform.flip(self.image, True, False)
+        if self.barrel:
+            movesCoords = movesCoordsSlow.copy()
+        elif self.adr_timer == 0:
+            movesCoords = {"UP": [0, -5], "DOWN": [0, 5], "LEFT": [-5, 0], "RIGHT": [5, 0]}
 
     def move(self, mx, my):
         self.rect = self.rect.move(mx, my)
@@ -245,12 +260,12 @@ class Flor(pygame.sprite.Sprite):
 
 class BoardFlor():
     def __init__(self):
-        for i in range(9):
-            for j in range(9):
-                viewBoard[i][j] = Flor((j - 4) * 250, (i - 4) * 250)
+        for i in range(11):
+            for j in range(11):
+                viewBoard[i][j] = Flor((j - 5) * 250, (i - 5) * 250)
 
-        self.playerNowX, self.playerNowY = 4, 4
-        self.playerOldX, self.playerOldY = 4, 4
+        self.playerNowX, self.playerNowY = 5, 5
+        self.playerOldX, self.playerOldY = 5, 5
 
     def update(self):
         r = True
@@ -293,6 +308,14 @@ class BoardFlor():
                 self.playerNowY -= 1
 
 
+class Message(pygame.sprite.Sprite):
+    def __init__(self, imageName):
+        super().__init__(messages)
+        self.image = load_image(imageName)
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = player.rect.x + 80, player.rect.y - 50
+
+
 class Box(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image("box.png"), (200, 200))
 
@@ -318,6 +341,10 @@ class Box(pygame.sprite.Sprite):
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
+        if self.hp <= 0:
+            if random.randint(0, 11) > 8:
+                Adrinaline(x=self.rect.x, y=self.rect.y)
+            self.kill()
 
 
 class Barrel(pygame.sprite.Sprite):
@@ -326,7 +353,7 @@ class Barrel(pygame.sprite.Sprite):
     timer = 50
     k = 1
 
-    def __init__(self, x=None, y=None):
+    def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
         randomValue = random.randint(100, 200)
         self.image = pygame.transform.scale(Barrel.image, (randomValue, randomValue))
@@ -335,11 +362,21 @@ class Barrel(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 2
+        self.timer = 50
+        self.haveMoved = False
         if x and y:
             self.rect.x, self.rect.y = x, y
+        if chunk:
+            self.chunk = chunk
+        else:
+            self.chunk = None
 
     def update(self):
+        global movesCoords, movesCoordsSlow, haveBarrelMoveMessage, barrelMoveMessage
         if self.hp <= 0:
+            if self.haveMoved:
+                self.haveMoved = False
+                player.barrel = None
             self.timer -= 1
             if self.timer <= 80:
                 self.center = self.rect.center
@@ -348,8 +385,51 @@ class Barrel(pygame.sprite.Sprite):
                 self.mask = pygame.mask.from_surface(self.image)
                 self.rect.center = self.center
                 self.k -= 0.02
+                if self.timer == 48:
+                    for box in boxes:
+                        if pygame.sprite.collide_mask(box, self):
+                            box.hp = 0
+                if self.timer == 40:
+                    for barrel in barrels:
+                        if not barrel is self:
+                            if pygame.sprite.collide_mask(barrel, self):
+                                barrel.hp = 0
+        else:
+            if pygame.sprite.collide_mask(self, player) and moving_barrel:
+                if player.barrel is None or player.barrel is self:
+                    if not self.haveMoved:
+                        if self.chunk:
+                            ind = self.chunk.barrels.index(self)
+                            del self.chunk.barrels[ind]
+                            self.chunk = None
+                    move = [0, 0]
+                    if moving_up:
+                        move[0] += movesCoords['UP'][0]
+                        move[1] += movesCoords['UP'][1]
+                    if moving_down:
+                        move[0] += movesCoords['DOWN'][0]
+                        move[1] += movesCoords['DOWN'][1]
+                    if moving_left:
+                        move[0] += movesCoords['LEFT'][0]
+                        move[1] += movesCoords['LEFT'][1]
+                    if moving_right:
+                        move[0] += movesCoords['RIGHT'][0]
+                        move[1] += movesCoords['RIGHT'][1]
+                    self.haveMoved = True
+                    player.barrel = self
+                    self.move(*move)
+            elif self.haveMoved:
+                self.haveMoved = False
+                player.barrel = None
+                self.chunk = chunks[1][1]
+                self.chunk.barrels.append(self)
+            if pygame.sprite.collide_mask(self, player) and \
+                    not moving_barrel:
+                if not haveBarrelMoveMessage:
+                    haveBarrelMoveMessage = True
+                    barrelMoveMessage = Message("barrelMove.png")
         if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
-            player.health -= 50
+            player.health -= 48
 
         if self.timer <= 0:
             self.kill()
@@ -364,6 +444,10 @@ class Barrel(pygame.sprite.Sprite):
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
+
+
+    def move(self, mx, my):
+        self.rect = self.rect.move(mx, my)
 
 
 class Adrinaline(pygame.sprite.Sprite):
@@ -381,10 +465,9 @@ class Adrinaline(pygame.sprite.Sprite):
         global movesCoords, movesCoordsMoreSpeed
         if pygame.sprite.collide_mask(self, player):
             player.health = 120
-            player.adr_timer = 1000
+            player.adr_timer = 600
             player.speed = 15
             player.accuracy = 0
-            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
             self.kill()
 
 
@@ -401,25 +484,27 @@ class Chunk(pygame.sprite.Sprite):
         self.boxesValue = random.randrange(2, 4)
         self.boxes = []
         for i in range(self.boxesValue):  # Спавн коробок
-            box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080 - 200),
-                      y=random.randrange(self.rect.y, self.rect.y + 1080 - 200))
+            box = Box(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
+                      y=random.randrange(self.rect.y, self.rect.y + 1080 - 300))
             while pygame.sprite.spritecollide(box, boxes, False):
                 box.kill()
-                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
+                box = Box(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300))
             self.boxes.append(box)
             boxes.add(box)
 
         self.barrelsValue = random.randrange(1, 3)
         self.barrels = []
         for i in range(self.barrelsValue):  # Спавн бочек
-            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
-                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
+            barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
+                          y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300),
+                          chunk=self)
             while pygame.sprite.spritecollide(barl, boxes, False) or \
                     pygame.sprite.spritecollide(barl, barrels, False):
                 barl.kill()
-                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 200),
-                              y=random.randrange(self.rect[1], self.rect[1] + 1080 - 200))
+                barl = Barrel(x=random.randrange(self.rect[0], self.rect[0] + 1080 - 300),
+                              y=random.randrange(self.rect[1], self.rect[1] + 1080 - 300),
+                              chunk=self)
             self.barrels.append(barl)
             barrels.add(barl)
         self.pos = poss
@@ -461,6 +546,8 @@ while True:
                 moving_left = True
             if event.key == pygame.K_d:
                 moving_right = True
+            if event.key == pygame.K_f:
+                moving_barrel = True
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_w:
@@ -473,6 +560,8 @@ while True:
                 moving_right = False
             if event.key == pygame.K_r and reload_timer == 0:
                 reload_timer += 1
+            if event.key == pygame.K_f:
+                moving_barrel = False
 
         if event.type == pygame.MOUSEMOTION:
             pos = event.pos
@@ -488,8 +577,9 @@ while True:
 
     camera.update(player)
     for group in all_gropus:
-        for sprite in group:
-            camera.apply(sprite)
+        if not group is messages:
+            for sprite in group:
+                camera.apply(sprite)
     for row in chunks:
         for chunk in row:
             camera.apply(chunk)
@@ -532,7 +622,6 @@ while True:
         for chunk in row:
             chunk.update()
 
-    chunksDraw.draw(screen)
     for group in all_gropus:
         group.draw(screen)
 
@@ -633,6 +722,13 @@ while True:
             chunks.insert(0, newRow)
 
         playerChunkPosOld = playerChunkPosNow.copy()
+
+    if not pygame.sprite.spritecollideany(player, barrels) and haveBarrelMoveMessage or \
+            haveBarrelMoveMessage and moving_barrel:
+        messages.remove(barrelMoveMessage)
+        barrelMoveMessage.kill()
+        barrelMoveMessage = None
+        haveBarrelMoveMessage = False
 
     pygame.display.flip()
     clock.tick(60)
