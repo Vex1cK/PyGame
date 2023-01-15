@@ -6,6 +6,7 @@ import random
 
 pygame.init()
 pygame.font.init()
+pygame.mouse.set_visible(False)
 size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
@@ -113,15 +114,6 @@ def escMenu():
                     return wasClick
 
         pygame.display.flip()
-
-
-class Example(pygame.sprite.Sprite):  # пример спрайта и работы функции position
-    image = load_image('ex.jfif')
-
-    def __init__(self, group):
-        super().__init__(group)
-        self.image = Example.image
-        self.rect = self.image.get_rect()
 
 
 class Player(pygame.sprite.Sprite):  # класс игрока
@@ -368,7 +360,10 @@ class Box(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None):
         super().__init__()
-        self.image = Box.image
+        randomValue = random.randint(100, 200)
+        self.image = pygame.transform.scale(Box.image, (randomValue, randomValue))
+        if random.choice((1, 0)) == 1:
+            self.image = pygame.transform.flip(self.image, True, False)
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 5
@@ -405,10 +400,15 @@ class Barrel(pygame.sprite.Sprite):
 
     def __init__(self, x=None, y=None, chunk=None):
         super().__init__()
-        randomValue = random.randint(100, 200)
-        self.image = pygame.transform.scale(Barrel.image, (randomValue, randomValue))
-        randomValue = random.randint(20, 40) + randomValue
-        self.boom = pygame.transform.scale(Barrel.boom, (randomValue, randomValue))
+        if random.choice((1, 0)) == 1:
+            self.image = pygame.transform.flip(self.image, True, False)
+        if random.choice((1, 0)) == 1:
+            self.boom = pygame.transform.flip(self.boom, True, False)
+        self.rand = random.choice((4, 3, 2, 1, 0))
+        if self.rand == 1:
+            self.image = rot_center(self.image, 90)
+        elif self.rand == 2:
+            self.image = rot_center(self.image, 270)
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 2
@@ -524,7 +524,7 @@ class Ammo(pygame.sprite.Sprite):
 
 
 class Adrinaline(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image('adr.png'), (150, 150))
+    image = pygame.transform.scale(load_image('adr.png'), (100, 100))
 
     def __init__(self, x=None, y=None):
         super().__init__(adrLineGr)
@@ -541,8 +541,45 @@ class Adrinaline(pygame.sprite.Sprite):
             player.adr_timer = 600
             player.speed = 15
             player.accuracy = 0
+            movesCoords, movesCoordsMoreSpeed = movesCoordsMoreSpeed, movesCoords
             self.kill()
 
+
+class Enemy(pygame.sprite.Sprite):
+    speed = 10
+    pos1 = pygame.transform.scale(load_image('enemy1.png'), (167, 167))
+    pos2 = pygame.transform.scale(load_image('enemy2.png'), (167, 167))
+
+    def __init__(self, x=None, y=None):
+        super().__init__()
+        self.hp = 100
+        self.image = self.pos1
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        if world_pos == 1:
+            self.image = self.pos1
+            self.rect = self.image.get_rect()
+            self.mask = pygame.mask.from_surface(self.image)
+        else:
+            self.image = self.pos2
+            self.rect = self.image.get_rect()
+            self.mask = pygame.mask.from_surface(self.image)
+        self.center = self.rect.center
+        self.player = player.rect.center
+        self.mx, self.my = self.center[0], self.center[1]
+        self.px, self.py = self.player[0], self.player[1]
+        self.dx = self.px - self.mx
+        self.dy = self.py - self.my
+        self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
+        if self.dr > 600:
+            self.rect = self.rect.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
+
+    def update(self, pos):
+        self.rect.center = pos
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
@@ -595,10 +632,10 @@ player = Player(player_group)  # спрайты
 gun = M4(guns)
 clock = pygame.time.Clock()
 camera = Camera()
-ex = Example(emenies)
 boardFlor = BoardFlor()
 playerChunkPosOld = [0, 0]
 playerChunkPosNow = [0, 0]
+scope = load_image('scope.png')
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 for i in range(3):
@@ -707,7 +744,7 @@ while True:
 
     for group in all_gropus:
         group.draw(screen)
-
+    screen.blit(scope, (pos[0] - 50, pos[1] - 50))
     mag_font = pygame.font.Font(None, 200)
     if mag >= 10:
         mag_info = mag_font.render(str(mag), True, (240, 240, 240))
