@@ -10,6 +10,22 @@ pygame.mouse.set_visible(False)
 size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
 
+moving = False
+
+pygame.mixer.music.load('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\BG.mp3')
+pygame.mixer.music.set_volume(1.5)
+pygame.mixer.music.play()
+
+m4_shot = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\AK.mp3')
+m4_shot.set_volume(1.5)
+walking = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\running.mp3')
+walking.set_volume(1.5)
+blowing = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\boom.mp3')
+blowing.set_volume(1.5)
+
+
+
+
 emenies = pygame.sprite.Group()  # создание групп спрайтов
 boxes = pygame.sprite.Group()
 guns = pygame.sprite.Group()
@@ -247,13 +263,16 @@ class M4(pygame.sprite.Sprite):  # класс валыны
 
 class P_Bullet(pygame.sprite.Sprite):  # класс пули
     image = load_image('bullet.png')
-    kd = 7
+    kd = 8
     kdNow = 0
     kdLive = 90
 
     def __init__(self, pos):
+        if P_Bullet.kdNow == 8:
+            m4_shot.stop()
         if P_Bullet.kdNow >= P_Bullet.kd:
             super().__init__(player_bullets)
+            m4_shot.play()
             self.image = P_Bullet.image
             self.rect = self.image.get_rect()
             self.rect.center = player.rect.center
@@ -311,7 +330,7 @@ class Camera:
 
 
 class Flor(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image("flor.png"), (1000, 1000))
+    image = pygame.transform.scale(load_image("flor.png"), (2000, 2000))
 
     def __init__(self, x, y):
         super().__init__(flors)
@@ -324,7 +343,7 @@ class BoardFlor():
     def __init__(self):
         for i in range(11):
             for j in range(11):
-                viewBoard[i][j] = Flor((j - 5) * 1000, (i - 5) * 1000)
+                viewBoard[i][j] = Flor((j - 5) * 2000, (i - 5) * 2000)
 
         self.playerNowX, self.playerNowY = 5, 5
         self.playerOldX, self.playerOldY = 5, 5
@@ -334,8 +353,8 @@ class BoardFlor():
         for i in range(len(viewBoard)):
             for j in range(len(viewBoard[i])):
                 fl = viewBoard[i][j]
-                if fl.rect.x < player.rect.centerx < fl.rect.x + 1000 and \
-                        fl.rect.y < player.rect.centery < fl.rect.y + 1000:
+                if fl.rect.x < player.rect.centerx < fl.rect.x + 2000 and \
+                        fl.rect.y < player.rect.centery < fl.rect.y + 2000:
                     self.playerOldX, self.playerOldY = self.playerNowX, self.playerNowY
                     self.playerNowX, self.playerNowY = j, i
                     r = False
@@ -351,22 +370,22 @@ class BoardFlor():
             if move[0] == 1:
                 for i in range(len(viewBoard)):
                     viewBoard[i] = viewBoard[i][1:] + [viewBoard[i][0]]
-                    viewBoard[i][-1].rect.x = viewBoard[i][-2].rect.x + 1000
+                    viewBoard[i][-1].rect.x = viewBoard[i][-2].rect.x + 2000
                     self.playerNowX += 1
             elif move[0] == -1:
                 for i in range(len(viewBoard)):
                     viewBoard[i] = [viewBoard[i][-1]] + viewBoard[i][:-1]
-                    viewBoard[i][0].rect.x = viewBoard[i][1].rect.x - 1000
+                    viewBoard[i][0].rect.x = viewBoard[i][1].rect.x - 2000
                     self.playerNowX -= 1
             if move[1] == 1:
                 viewBoard[:] = viewBoard[1:] + [viewBoard[0]]
                 for fl in viewBoard[-1]:
-                    fl.rect.y = viewBoard[-2][1].rect.y + 1000
+                    fl.rect.y = viewBoard[-2][1].rect.y + 2000
                 self.playerNowY += 1
             elif move[1] == -1:
                 viewBoard[:] = [viewBoard[-1]] + viewBoard[:-1]
                 for fl in viewBoard[0]:
-                    fl.rect.y = viewBoard[1][1].rect.y - 1000
+                    fl.rect.y = viewBoard[1][1].rect.y - 2000
                 self.playerNowY -= 1
 
 
@@ -446,6 +465,8 @@ class Barrel(pygame.sprite.Sprite):
 
     def update(self):
         global movesCoords, movesCoordsSlow, haveBarrelMoveMessage, barrelMoveMessage
+        if self.timer == 49:
+            blowing.play()
         if self.hp <= 0:
             if self.haveMoved:
                 self.haveMoved = False
@@ -844,6 +865,9 @@ for i in range(3):
         chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
 
 while True:
+    if not(any((moving_up, moving_down, moving_left, moving_right))):
+        moving = False
+        walking.stop()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             terminate()
@@ -851,12 +875,24 @@ while True:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_w:
                 moving_up = True
+                if moving is False:
+                    walking.play()
+                moving = True
             if event.key == pygame.K_s:
                 moving_down = True
+                if moving is False:
+                    walking.play()
+                moving = True
             if event.key == pygame.K_a:
                 moving_left = True
+                if moving is False:
+                    walking.play()
+                moving = True
             if event.key == pygame.K_d:
                 moving_right = True
+                if moving is False:
+                    walking.play()
+                moving = True
             if event.key == pygame.K_f:
                 moving_barrel = True
             if event.key == pygame.K_ESCAPE:
