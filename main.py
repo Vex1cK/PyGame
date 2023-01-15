@@ -576,8 +576,64 @@ class Enemy(pygame.sprite.Sprite):
         if self.dr > 600:
             self.rect = self.rect.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
 
-    def update(self, pos):
-        self.rect.center = pos
+
+class Car(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("car.png"), (600, 600))
+    boom = load_image('boom.png')
+    timer = 50
+    k = 1
+
+    def __init__(self, x=None, y=None, chunk=None):
+        super().__init__()
+        if random.choice((1, 0)) == 1:
+            self.image = pygame.transform.flip(self.image, True, False)
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.hp = 20
+        self.timer = 50
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+        if chunk:
+            self.chunk = chunk
+        else:
+            self.chunk = None
+
+    def update(self):
+        if self.hp <= 0:
+            self.timer -= 1
+            if self.timer <= 80:
+                self.center = self.rect.center
+                self.image = pygame.transform.scale(self.boom, (round(800 * self.k ** 2), round(800 * self.k ** 2)))
+                self.rect = self.image.get_rect()
+                self.mask = pygame.mask.from_surface(self.image)
+                self.rect.center = self.center
+                self.k -= 0.02
+                if self.timer == 48:
+                    for box in boxes:
+                        if pygame.sprite.collide_mask(box, self):
+                            box.hp = 0
+                if self.timer == 40:
+                    for barrel in barrels:
+                        if not barrel is self:
+                            if pygame.sprite.collide_mask(barrel, self):
+                                barrel.hp = 0
+        if self.hp == 0 and pygame.sprite.collide_mask(self, player) and self.timer == 48:
+            player.health -= 90
+
+        if self.timer <= 0:
+            self.kill()
+
+        if pygame.sprite.spritecollide(self, player_bullets, False):
+            for blt in player_bullets:
+                if pygame.sprite.collide_mask(self, blt):
+                    blt.kill()
+                    if self.hp <= 0:
+                        pass
+                    else:
+                        self.hp -= 1
+                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
+                    break
+
 
 class Chunk(pygame.sprite.Sprite):
     def __init__(self, poss, x, y, rectx=None, recty=None):
