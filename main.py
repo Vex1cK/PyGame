@@ -402,8 +402,6 @@ class Barrel(pygame.sprite.Sprite):
         super().__init__()
         if random.choice((1, 0)) == 1:
             self.image = pygame.transform.flip(self.image, True, False)
-        if random.choice((1, 0)) == 1:
-            self.boom = pygame.transform.flip(self.boom, True, False)
         self.rand = random.choice((4, 3, 2, 1, 0))
         if self.rand == 1:
             self.image = rot_center(self.image, 90)
