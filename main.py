@@ -12,15 +12,15 @@ screen = pygame.display.set_mode(size)
 
 moving = False
 
-pygame.mixer.music.load('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\BG.mp3')
+pygame.mixer.music.load('sounds\\BG.mp3')
 pygame.mixer.music.set_volume(1.5)
 pygame.mixer.music.play()
 
-m4_shot = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\AK.mp3')
+m4_shot = pygame.mixer.Sound('sounds\\AK.mp3')
 m4_shot.set_volume(1.5)
-walking = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\running.mp3')
+walking = pygame.mixer.Sound('sounds\\running.mp3')
 walking.set_volume(1.5)
-blowing = pygame.mixer.Sound('C:\\Users\\Test\\PycharmProjects\\PyGame\\sounds\\boom.mp3')
+blowing = pygame.mixer.Sound('sounds\\boom.mp3')
 blowing.set_volume(1.5)
 
 
@@ -418,10 +418,7 @@ class Box(pygame.sprite.Sprite):
                 if pygame.sprite.collide_mask(self, blt):
                     blt.kill()
                     if self.hp <= 0:
-                        if random.randint(0, 11) > 8:
-                            Adrinaline(x=self.rect.x, y=self.rect.y)
-                        player.score += 20
-                        self.kill()
+                        pass
                     else:
                         self.hp -= 1
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
@@ -433,6 +430,7 @@ class Box(pygame.sprite.Sprite):
                 if random.randint(0, 12) > 9:
                     Adrinaline(x=self.rect.x, y=self.rect.y)
             player.score += 20
+            boxes.remove(self)
             self.kill()
 
 
