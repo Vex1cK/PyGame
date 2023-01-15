@@ -761,7 +761,7 @@ class Enemy(pygame.sprite.Sprite):
                 self.voise = pygame.mixer.Sound(os.path.join('killing', random.choice(os.listdir('killing'))))
                 self.voise.play()
                 self.say_bb = False
-            if random.choice(range(700)) == 1 or self.say_hi:
+            if random.choice(range(2000)) == 1 or self.say_hi:
                 self.say_hi = False
                 self.voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
                 self.voise.play()
