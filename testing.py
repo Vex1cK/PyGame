@@ -29,8 +29,7 @@ def load_image(name, colorkey=None):  # загрузка картинки
         image = image.convert_alpha()
     return image
 
-a = [1,2,3,4]
-a.append(5)
+a = list(range(0, 11))
 print(a)
 
 while True:

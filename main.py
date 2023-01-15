@@ -17,9 +17,11 @@ barrels = pygame.sprite.Group()
 player_bullets = pygame.sprite.Group()
 flors = pygame.sprite.Group()
 adrLineGr = pygame.sprite.Group()
+ammoGr = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 messages = pygame.sprite.Group()
-all_gropus = [flors, walls, boxes, barrels, adrLineGr, emenies, player_group, player_bullets, guns, messages]
+all_gropus = [flors, walls, boxes, barrels, adrLineGr, ammoGr,
+              emenies, player_group, player_bullets, guns, messages]
 
 moving_up, moving_down, moving_left, \
 moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
@@ -66,6 +68,51 @@ def load_image(name, colorkey=None):  # загрузка картинки
     else:
         image = image.convert_alpha()
     return image
+
+
+menu = load_image("Menu.png")
+menuExit = load_image("MenuButton0.png")
+menuContinue = load_image("MenuButton1.png")
+
+
+def escMenu():
+    pygame.init()
+    pygame.font.init()
+    size = width, height = 1920, 1080  # касаемо экрана
+    screen = pygame.display.set_mode(size)
+
+    screen.blit(menu, (0, 0))
+    wasClick = False
+
+    run = True
+    while run:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+                return 0
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    run = False
+                    return 0
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    pos = event.pos
+                    if 473 <= pos[0] <= 1448 and 457 <= pos[1] <= 681:
+                        screen.blit(menuExit, (0, 0))
+                        wasClick = "EXIT"
+                    elif 469 <= pos[0] <= 1449 and 713 <= pos[1] <= 941:
+                        screen.blit(menuContinue, (0, 0))
+                        wasClick = "GO"
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1 and wasClick == 'GO':
+                    return pos
+                elif event.button == 1 and wasClick == 'EXIT':
+                    return wasClick
+
+        pygame.display.flip()
 
 
 class Example(pygame.sprite.Sprite):  # пример спрайта и работы функции position
@@ -342,8 +389,11 @@ class Box(pygame.sprite.Sprite):
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
         if self.hp <= 0:
-            if random.randint(0, 11) > 8:
-                Adrinaline(x=self.rect.x, y=self.rect.y)
+            if random.randint(0, 12) > 9:
+                Ammo(x=self.rect.x, y=self.rect.y)
+            else:
+                if random.randint(0, 12) > 9:
+                    Adrinaline(x=self.rect.x, y=self.rect.y)
             self.kill()
 
 
@@ -445,9 +495,32 @@ class Barrel(pygame.sprite.Sprite):
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
 
-
     def move(self, mx, my):
         self.rect = self.rect.move(mx, my)
+        if pos[0] <= 960:
+            self.rect.centerx = player.rect.centerx + 50
+            self.rect.centery = player.rect.centery
+        else:
+            self.rect.centerx = player.rect.centerx - 50
+            self.rect.centery = player.rect.centery
+
+
+class Ammo(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image("ammo.png"), (100, 100))
+
+    def __init__(self, x=None, y=None):
+        super().__init__(ammoGr)
+        self.image = Ammo.image
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        if x and y:
+            self.rect.x, self.rect.y = x, y
+
+    def update(self):
+        global ammo
+        if pygame.sprite.collide_mask(player, self):
+            ammo += 30
+            self.kill()
 
 
 class Adrinaline(pygame.sprite.Sprite):
@@ -548,6 +621,16 @@ while True:
                 moving_right = True
             if event.key == pygame.K_f:
                 moving_barrel = True
+            if event.key == pygame.K_ESCAPE:
+                pos = escMenu()
+                if pos == 'EXIT':
+                    terminate()
+                else:
+                    guns.update(pos)
+                    moving_up, moving_down, moving_left, \
+                    moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
+                                                                                   False, False, False, False
+                    barrelMoveMessage = None
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_w:
