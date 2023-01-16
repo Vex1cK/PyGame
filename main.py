@@ -4,17 +4,21 @@ import math
 import os
 import random
 
+f = open('score.txt')
+record = f.read()
+f.close()
 pygame.init()
 pygame.font.init()
 pygame.mouse.set_visible(False)
 size = width, height = 1920, 1080  # касаемо экрана
 screen = pygame.display.set_mode(size)
+death_timer = 0
 
 moving = False
 
 pygame.mixer.music.load('sounds\\BG.mp3')
 pygame.mixer.music.set_volume(1.5)
-pygame.mixer.music.play()
+pygame.mixer.music.play(-1)
 
 m4_shot = pygame.mixer.Sound('sounds\\AK.mp3')
 m4_shot.set_volume(1.5)
@@ -23,7 +27,12 @@ ak_shot.set_volume(1.5)
 walking = pygame.mixer.Sound('sounds\\running.mp3')
 walking.set_volume(1.5)
 blowing = pygame.mixer.Sound('sounds\\boom.mp3')
-blowing.set_volume(1.5)
+blowing.set_volume(2)
+reloads = pygame.mixer.Sound('sounds\\reload.mp3')
+reloads.set_volume(1.5)
+heal = pygame.mixer.Sound('sounds\\healing.mp3')
+pickup = pygame.mixer.Sound('sounds\\ammo.mp3')
+pickup.set_volume(1.5)
 
 enemy_bullets = pygame.sprite.Group()
 emenies = pygame.sprite.Group()  # создание групп спрайтов
@@ -73,6 +82,19 @@ def rot_center(image, angle):  # поворот картинки
 def terminate():
     pygame.quit()
     sys.exit()
+
+
+def draw(screen):
+    screen.fill((0, 0, 0))
+    font = pygame.font.Font(None, 150)
+    text = font.render("Dead guy", True, (255, 0, 0))
+    text_x = width // 2 - text.get_width() // 2
+    text_y = height // 2 - text.get_height() // 2
+    text_w = text.get_width()
+    text_h = text.get_height()
+    screen.blit(text, (text_x, text_y))
+    pygame.draw.rect(screen, (255, 0, 0), (text_x - 10, text_y - 10,
+                                           text_w + 20, text_h + 20), 1)
 
 
 def load_image(name, colorkey=None):  # загрузка картинки
@@ -590,6 +612,17 @@ class Barrel(pygame.sprite.Sprite):
                         self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
                     break
 
+        if pygame.sprite.spritecollide(self, enemy_bullets, False):
+            for blt in enemy_bullets:
+                if pygame.sprite.collide_mask(self, blt):
+                    blt.kill()
+                    if self.hp <= 0:
+                        pass
+                    else:
+                        self.hp -= 1
+                        self.rect = self.rect.move(random.randint(-2, 3), random.randint(-2, 3))
+                    break
+
     def move(self, mx, my):
         self.rect = self.rect.move(mx, my)
         if pos[0] <= 960:
@@ -642,6 +675,7 @@ class Ammo(pygame.sprite.Sprite):
         if pygame.sprite.collide_mask(player, self):
             ammo += 30
             player.score += 20
+            pickup.play()
             self.kill()
 
 
@@ -665,6 +699,7 @@ class Adrinaline(pygame.sprite.Sprite):
             player.accuracy = 0
             movesCoords = movesCoordsMoreSpeed.copy()
             player.score += 20
+            heal.play()
             self.kill()
 
 
@@ -727,69 +762,70 @@ class Enemy(pygame.sprite.Sprite):
         self.ak = AKM(self.rect.x, self.rect.y, self)
 
     def update(self):
-        self.kd += 1
-        if self.kd % 20 == 0:
-            E_Bullet(self.rect.center)
-        if pygame.sprite.spritecollide(self, player_bullets, False):
-            for blt in player_bullets:
-                if pygame.sprite.collide_mask(self, blt):
-                    blt.kill()
-                    self.hp -= 20
-        if self.hp <= 0:
-            self.voise = pygame.mixer.Sound(os.path.join('rip', random.choice(os.listdir('rip'))))
-            self.voise.play()
-            self.kill()
-            AKS.remove(self.ak)
-            self.ak.kill()
-            player.score += 100
-        if world_pos == 1:
-            self.image = self.pos1
-            self.mask = pygame.mask.from_surface(self.image)
-        else:
-            self.image = self.pos2
-            self.mask = pygame.mask.from_surface(self.image)
         self.center = self.rect.center
         self.player = player.rect.center
         self.mx, self.my = self.center[0], self.center[1]
         self.px, self.py = self.player[0], self.player[1]
         self.dx = self.px - self.mx
         self.dy = self.py - self.my
-        self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
-        if self.dr < 1000:
+        self.kd += 1
+        if -1100 < self.dx < 1100 and -700 < self.dy < 700:
+            if self.kd % 50 == 0:
+                E_Bullet(self.rect.center)
+            if pygame.sprite.spritecollide(self, player_bullets, False):
+                for blt in player_bullets:
+                    if pygame.sprite.collide_mask(self, blt):
+                        blt.kill()
+                        self.hp -= 20
+            if self.hp <= 0:
+                self.voise = pygame.mixer.Sound(os.path.join('rip', random.choice(os.listdir('rip'))))
+                self.voise.play()
+                self.kill()
+                AKS.remove(self.ak)
+                self.ak.kill()
+                player.score += 100
+            if world_pos == 1:
+                self.image = self.pos1
+                self.mask = pygame.mask.from_surface(self.image)
+            else:
+                self.image = self.pos2
+                self.mask = pygame.mask.from_surface(self.image)
+            self.dr = ((self.dx ** 2) + (self.dy ** 2)) ** (1 / 2)
+            if self.dr < 1000:
 
-            if player.health <= 0 and self.say_bb:
-                self.voise = pygame.mixer.Sound(os.path.join('killing', random.choice(os.listdir('killing'))))
-                self.voise.play()
-                self.say_bb = False
-            if random.choice(range(2000)) == 1 or self.say_hi:
-                self.say_hi = False
-                self.voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
-                self.voise.play()
-        if 400 < self.dr < 1200 and self.walking == 0:
-            self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
-        elif self.walking != 0:
-            self.walking -= 1
-            if self.way == 'up':
-                self.move(0, self.speed)
-            if self.way == 'down':
-                self.move(0, -self.speed)
-            if self.way == 'right':
-                self.move(self.speed, 0)
-            if self.way == 'left':
-                self.move(0 - self.speed, 0)
-            if self.way == 'ur':
-                self.move(self.speed * 0.75, self.speed * 0.75)
-            if self.way == 'dr':
-                self.move(self.speed * 0.75, -self.speed * 0.75)
-            if self.way == 'dl':
-                self.move(0 - self.speed * 0.75, -self.speed * 0.75)
-            if self.way == 'ul':
-                self.move(0 - self.speed * 0.75, self.speed * 0.75)
-        else:
-            self.walking = 25
-            self.way = random.choice(('up', 'down', 'left', 'right', 'ur', 'dr', 'dl', 'ul'))
-        if self.dx < 0:
-            self.image = pygame.transform.flip(self.image, True, False)
+                if player.health <= 0 and self.say_bb:
+                    self.voise = pygame.mixer.Sound(os.path.join('killing', random.choice(os.listdir('killing'))))
+                    self.voise.play()
+                    self.say_bb = False
+                if random.choice(range(2000)) == 1 or self.say_hi:
+                    self.say_hi = False
+                    self.voise = pygame.mixer.Sound(os.path.join('voises', random.choice(os.listdir('voises'))))
+                    self.voise.play()
+            if 400 < self.dr < 1200 and self.walking == 0:
+                self.move(self.speed * self.dx / self.dr, self.speed * self.dy / self.dr)
+            elif self.walking != 0:
+                self.walking -= 1
+                if self.way == 'up':
+                    self.move(0, self.speed)
+                if self.way == 'down':
+                    self.move(0, -self.speed)
+                if self.way == 'right':
+                    self.move(self.speed, 0)
+                if self.way == 'left':
+                    self.move(0 - self.speed, 0)
+                if self.way == 'ur':
+                    self.move(self.speed * 0.75, self.speed * 0.75)
+                if self.way == 'dr':
+                    self.move(self.speed * 0.75, -self.speed * 0.75)
+                if self.way == 'dl':
+                    self.move(0 - self.speed * 0.75, -self.speed * 0.75)
+                if self.way == 'ul':
+                    self.move(0 - self.speed * 0.75, self.speed * 0.75)
+            else:
+                self.walking = 25
+                self.way = random.choice(('up', 'down', 'left', 'right', 'ur', 'dr', 'dl', 'ul'))
+            if self.dx < 0:
+                self.image = pygame.transform.flip(self.image, True, False)
 
     def move(self, x, y):
         self.rect = self.rect.move(x, y)
@@ -800,10 +836,7 @@ class Enemy(pygame.sprite.Sprite):
                         if pygame.sprite.collide_mask(self, chunk):
                             self.chunk = chunk
                             break
-                for chunk in chunks:
-                    if pygame.sprite.collide_mask(self, chunk):
-                        self.chunk = chunk
-                        break
+
 
 class E_Bullet(pygame.sprite.Sprite):  # класс пулaи
     image = load_image('bullet.png')
@@ -964,15 +997,15 @@ class Chunk(pygame.sprite.Sprite):
         self.guys = []
         for i in range(self.guysValue):  # Спавн врагов
             guy = Enemy(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
-                          y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
-                          chunk=self)
+                        y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                        chunk=self)
             while pygame.sprite.spritecollide(guy, self.boxes, False) or \
                     pygame.sprite.spritecollide(guy, self.barrels, False):
                 guy.ak.kill()
                 guy.kill()
                 guy = Enemy(x=random.randrange(self.rect.x, self.rect.x + 1080 - 300),
-                              y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
-                              chunk=self)
+                            y=random.randrange(self.rect.y, self.rect.y + 1080 - 300),
+                            chunk=self)
             self.guys.append(guy)
             emenies.add(guy)
 
@@ -1092,6 +1125,7 @@ while True:
                 if event.key == pygame.K_d:
                     moving_right = False
                 if event.key == pygame.K_r and reload_timer == 0:
+                    reloads.play()
                     reload_timer += 1
                 if event.key == pygame.K_f:
                     moving_barrel = False
@@ -1164,8 +1198,6 @@ while True:
 
     for group in all_gropus:
         group.draw(screen)
-    if player.health > 0:
-        screen.blit(scope, (pos[0] - 50, pos[1] - 50))
     mag_font = pygame.font.Font(None, 200)
     if mag >= 10:
         mag_info = mag_font.render(str(mag), True, (240, 240, 240))
@@ -1193,6 +1225,8 @@ while True:
     screen.blit(hp_info, (60, 925))
     score_info = mag_font.render(str(player.score), True, (220, 220, 50))
     screen.blit(score_info, (60, 30))
+    record_info = ammo_font.render('Max:' + str(record), True, (242, 242, 60))
+    screen.blit(record_info, (60, 150))
 
     if playerChunkPosNow != playerChunkPosOld:
         move = (
@@ -1272,6 +1306,17 @@ while True:
         barrelMoveMessage.kill()
         barrelMoveMessage = None
         haveBarrelMoveMessage = False
+    if player.health > 0:
+        screen.blit(scope, (pos[0] - 50, pos[1] - 50))
+    else:
+        death_timer += 1
+        if player.score > int(record):
+            f = open('score.txt', mode='w')
+            f.write(str(player.score))
+            f.close()
+        draw(screen)
+        if death_timer > 200:
+            terminate()
 
     pygame.display.flip()
     clock.tick(60)
