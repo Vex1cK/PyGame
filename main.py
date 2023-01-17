@@ -24,7 +24,7 @@ m4_shot = pygame.mixer.Sound('sounds\\AK.mp3')
 m4_shot.set_volume(1.5)
 ak_shot = pygame.mixer.Sound('sounds\\M4.mp3')
 ak_shot.set_volume(1.5)
-walking = pygame.mixer.Sound('sounds\\running.mp3')
+walking = pygame.mixer.Sound('sounds\\running.mp3')  # Звуки
 walking.set_volume(1.5)
 blowing = pygame.mixer.Sound('sounds\\boom.mp3')
 blowing.set_volume(2)
@@ -50,7 +50,7 @@ carsGr = pygame.sprite.Group()
 particles = pygame.sprite.Group()
 all_gropus = [flors, boxes, barrels, adrLineGr, ammoGr, carsGr,
               emenies, player_group, player_bullets, enemy_bullets, AKS, guns,
-              particles, messages]
+              particles, messages]  # для отрисовки
 
 moving_up, moving_down, moving_left, \
 moving_right, shooting, moving_barrel, haveBarrelMoveMessage = False, False, False, \
@@ -62,9 +62,9 @@ movesCoordsSlow = {"UP": [0, -2], "DOWN": [0, 2], "LEFT": [-2, 0], "RIGHT": [2, 
 world_pos = 0
 frames_count = 0
 bullet_speed = 12
-reload_timer = 0
+reload_timer = 0  # Различные переменные
 reload_time = 120
-graviti = 0.2
+GRAVITI = 0.2
 
 mag = 30
 ammo = 120
@@ -79,7 +79,7 @@ def rot_center(image, angle):  # поворот картинки
     return rot_sprite
 
 
-def terminate():
+def terminate():  # Выход
     pygame.quit()
     sys.exit()
 
@@ -114,11 +114,11 @@ def load_image(name, colorkey=None):  # загрузка картинки
 
 
 menu = load_image("Menu.png")
-menuExit = load_image("MenuButton0.png")
+menuExit = load_image("MenuButton0.png")  # текстурки меню
 menuContinue = load_image("MenuButton1.png")
 
 
-def escMenu():
+def escMenu():  # меню
     pygame.mouse.set_visible(True)
     pygame.init()
     pygame.font.init()
@@ -261,7 +261,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                         sprite.mask = pygame.mask.from_surface(sprite.image)
 
 
-class M4(pygame.sprite.Sprite):  # класс валыны
+class M4(pygame.sprite.Sprite):  # класс оружия игрока
     image = pygame.transform.scale(load_image('M4.png'), (200, 200))
 
     def __init__(self, group):
@@ -296,7 +296,7 @@ class M4(pygame.sprite.Sprite):  # класс валыны
             player.player_reverse = False
 
 
-class P_Bullet(pygame.sprite.Sprite):  # класс пули
+class P_Bullet(pygame.sprite.Sprite):  # класс пули игрока
     image = load_image('bullet.png')
     kd = 8
     kdNow = 0
@@ -347,7 +347,7 @@ class P_Bullet(pygame.sprite.Sprite):  # класс пули
             self.kill()
 
 
-class Camera:
+class Camera:  # класс камеры
     # зададим начальный сдвиг камеры
     def __init__(self):
         self.dx = 0
@@ -364,7 +364,7 @@ class Camera:
         self.dy = -(target.rect.y + target.rect.h // 2 - height // 2)
 
 
-class Flor(pygame.sprite.Sprite):
+class Flor(pygame.sprite.Sprite):  # класс плитки пола
     image = pygame.transform.scale(load_image("flor.png"), (2000, 2000))
 
     def __init__(self, x, y):
@@ -374,7 +374,7 @@ class Flor(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = x, y
 
 
-class BoardFlor():
+class BoardFlor():  # класс пола
     def __init__(self):
         for i in range(11):
             for j in range(11):
@@ -424,7 +424,7 @@ class BoardFlor():
                 self.playerNowY -= 1
 
 
-class Message(pygame.sprite.Sprite):
+class Message(pygame.sprite.Sprite):  # класс сообщения в виде картинки
     def __init__(self, imageName):
         super().__init__(messages)
         self.image = load_image(imageName)
@@ -432,7 +432,7 @@ class Message(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = player.rect.x + 80, player.rect.y - 50
 
 
-class Box(pygame.sprite.Sprite):
+class Box(pygame.sprite.Sprite):  # класс коробки
     image = pygame.transform.scale(load_image("box.png"), (200, 200))
 
     def __init__(self, x=None, y=None):
@@ -472,7 +472,7 @@ class Box(pygame.sprite.Sprite):
                              *[random.choice([-6, -5, -4, -3, 3, 4, 5, 6]) for __ in range(2)])
 
 
-class BoxParticles(pygame.sprite.Sprite):
+class BoxParticles(pygame.sprite.Sprite):  # класс партиклов коробки
     pieces = [load_image(f"boxParticl{i}.png") \
               for i in range(1, 6)]
 
@@ -482,7 +482,7 @@ class BoxParticles(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.velocity = [dx, dy]
         self.rect.x, self.rect.y = pos
-        self.gravity = graviti
+        self.gravity = GRAVITI
         self.live = 32
 
     def update(self):
@@ -494,7 +494,7 @@ class BoxParticles(pygame.sprite.Sprite):
             self.kill()
 
 
-class Barrel(pygame.sprite.Sprite):
+class Barrel(pygame.sprite.Sprite):  # класс бочки
     image = pygame.transform.scale(load_image("barrel.png"), (200, 200))
     boom = load_image('boom.png')
     timer = 50
@@ -633,7 +633,7 @@ class Barrel(pygame.sprite.Sprite):
             self.rect.centery = player.rect.centery
 
 
-class BarrelParticles(pygame.sprite.Sprite):
+class BarrelParticles(pygame.sprite.Sprite):  # класс партиклов бочки
     pieces = [load_image(f"barrelParticl{i}.png") \
               for i in range(1, 6)]
 
@@ -644,9 +644,9 @@ class BarrelParticles(pygame.sprite.Sprite):
         self.velocity = [dx, dy]
         self.rect.x, self.rect.y = pos
         if random.choice((0, 1)) == 1:
-            self.gravity = graviti * -2
+            self.gravity = GRAVITI * -2
         else:
-            self.gravity = graviti * 2
+            self.gravity = GRAVITI * 2
         self.live = 32
 
     def update(self):
@@ -658,7 +658,7 @@ class BarrelParticles(pygame.sprite.Sprite):
             self.kill()
 
 
-class Ammo(pygame.sprite.Sprite):
+class Ammo(pygame.sprite.Sprite):  # класс обоймы (появляется на поле)
     image = pygame.transform.scale(load_image("ammo.png"), (150, 150))
 
     def __init__(self, x=None, y=None, chunk=None):
@@ -679,7 +679,7 @@ class Ammo(pygame.sprite.Sprite):
             self.kill()
 
 
-class Adrinaline(pygame.sprite.Sprite):
+class Adrinaline(pygame.sprite.Sprite):  # класс аптечки
     image = pygame.transform.scale(load_image('adr.png'), (100, 100))
 
     def __init__(self, x=None, y=None):
@@ -703,7 +703,7 @@ class Adrinaline(pygame.sprite.Sprite):
             self.kill()
 
 
-class AKM(pygame.sprite.Sprite):  # класс валыны
+class AKM(pygame.sprite.Sprite):  # класс оружия врага
     image = pygame.transform.scale(load_image('ak.png'), (200, 200))
 
     def __init__(self, x, y, guy):
@@ -741,7 +741,7 @@ class AKM(pygame.sprite.Sprite):  # класс валыны
         self.rect = self.rect.move(mx, my)
 
 
-class Enemy(pygame.sprite.Sprite):
+class Enemy(pygame.sprite.Sprite):  # класс врага
     speed = 4
     pos1 = pygame.transform.scale(load_image('enemy1.png'), (200, 200))
     pos2 = pygame.transform.scale(load_image('enemy2.png'), (200, 200))
@@ -838,7 +838,7 @@ class Enemy(pygame.sprite.Sprite):
                             break
 
 
-class E_Bullet(pygame.sprite.Sprite):  # класс пулaи
+class E_Bullet(pygame.sprite.Sprite):  # класс пули врага
     image = load_image('bullet.png')
     kd = 10
     kdNow = 0
@@ -956,7 +956,7 @@ class E_Bullet(pygame.sprite.Sprite):  # класс пулaи
 #                     break
 #
 
-class Chunk(pygame.sprite.Sprite):
+class Chunk(pygame.sprite.Sprite):  # класс чанка (некое воображаемое мини-поле со спрайтами)
     def __init__(self, poss, x, y, rectx=None, recty=None):
         super().__init__()
         self.image = pygame.transform.scale(load_image("flor.png"), (1080, 1080))
@@ -1067,12 +1067,12 @@ playerChunkPosNow = [0, 0]
 scope = load_image('scope.png')
 
 chunks = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-for i in range(3):
+for i in range(3):  # изначальная генерация чанков
     for j in range(3):
         chunks[i][j] = Chunk([j - 1, i - 1], j - 1, i - 1)
 
 while True:
-    if not (any((moving_up, moving_down, moving_left, moving_right))):
+    if not (any((moving_up, moving_down, moving_left, moving_right))):  # обработка ивентов
         moving = False
         walking.stop()
     for event in pygame.event.get():
@@ -1150,7 +1150,7 @@ while True:
             barrelMoveMessage = None
 
     camera.update(player)
-    for group in all_gropus:
+    for group in all_gropus:  # работа с положением спрайтов
         if not group is messages:
             for sprite in group:
                 camera.apply(sprite)
@@ -1158,7 +1158,7 @@ while True:
         for chunk in row:
             camera.apply(chunk)
 
-    if reload_timer > reload_time:
+    if reload_timer > reload_time:  # перезарядка
         reload_timer = 0
         if ammo >= 30:
             ammo -= 30
@@ -1169,7 +1169,7 @@ while True:
     elif reload_timer > 0:
         reload_timer += 1
 
-    if shooting:
+    if shooting:  # стрельба
         if mag > 0 and reload_timer == 0:
             bullet = P_Bullet(pos)
             try:
@@ -1191,17 +1191,17 @@ while True:
         if not group is guns:
             group.update()
     guns.update(pos)
-    boardFlor.update()
+    boardFlor.update()  # обновление спрайтов
     for row in chunks:
         for chunk in row:
             chunk.update()
 
     for group in all_gropus:
-        group.draw(screen)
+        group.draw(screen)  # отрисовка спрайтов
     mag_font = pygame.font.Font(None, 200)
     if mag >= 10:
         mag_info = mag_font.render(str(mag), True, (240, 240, 240))
-        screen.blit(mag_info, (1500, 900))
+        screen.blit(mag_info, (1500, 900))  # магазин
     else:
         mag_info = mag_font.render(str(mag), True, (240, 40, 40))
         screen.blit(mag_info, (1585, 900))
@@ -1228,7 +1228,7 @@ while True:
     record_info = ammo_font.render('Max:' + str(record), True, (242, 242, 60))
     screen.blit(record_info, (60, 150))
 
-    if playerChunkPosNow != playerChunkPosOld:
+    if playerChunkPosNow != playerChunkPosOld:  # в случае если игрок покинул прежний чанк
         move = (
             playerChunkPosNow[0] - playerChunkPosOld[0],
             playerChunkPosNow[1] - playerChunkPosOld[1]
@@ -1306,7 +1306,7 @@ while True:
         barrelMoveMessage.kill()
         barrelMoveMessage = None
         haveBarrelMoveMessage = False
-    if player.health > 0:
+    if player.health > 0:  # смерть игрока
         screen.blit(scope, (pos[0] - 50, pos[1] - 50))
     else:
         death_timer += 1
